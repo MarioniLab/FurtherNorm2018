@@ -1,6 +1,6 @@
 # Summarizes the simulation results by averaging within scenarios and clustering across scenarios. 
 
-CLUSTERER <- function(indir, k=10) {
+CLUSTERER <- function(indir, parameters, k=10) {
     all.files <- list.files(indir, pattern="\\.tsv$", full=TRUE)
     collected <- vector("list", length(all.files))
     for (f in seq_along(all.files)) {
@@ -31,9 +31,14 @@ CLUSTERER <- function(indir, k=10) {
     current.files <- sub(".tsv$", "", basename(all.files))
     scenarios <- strsplit(current.files, "-")
     df <- data.frame(do.call(rbind, scenarios))
-    colnames(df) <- c("Mode", "Ncells", "GenesUp", "GenesDown", "Prop", "Effect")
-    for (i in colnames(df)[-1]) {
-        df[[i]] <- factor(as.numeric(sub("^[a-z]+", "", df[[i]])))
+    colnames(df) <- parameters
+
+    is.numeric <- logical(ncol(df))
+    for (i in seq_len(ncol(df))) {
+        if (all(grepl("[0-9]+$", df[[i]]))) { 
+            df[[i]] <- factor(as.numeric(sub("^[a-z]+", "", df[[i]])))
+            is.numeric[i] <- TRUE
+        }
     }
 
     pdf(file.path(indir, "clusters.pdf"), width=5, height=10)
@@ -45,8 +50,8 @@ CLUSTERER <- function(indir, k=10) {
         plot(0,0,type="n", axes=FALSE, xlab="", ylab="", xlim=c(1, ncol(cur.df)), ylim=c(1, nrow(cur.df)), main=paste("Cluster", i))
         for (j in seq_len(ncol(cur.df))) {
             current <- cur.df[[j]]
-            if (colnames(cur.df)[j]=="Mode") {
-                points(rep(j, length(current)), seq_along(current), pch=ifelse(current=="UMI", 16, 1))
+            if (!is.numeric[j]) {
+                points(rep(j, length(current)), seq_along(current), pch=c(1, 16)[current])
             } else {
                 if (any(levels(current)=="0")) { 
                     cols <- c("white", rev(viridis::viridis(nlevels(current)-1)))
@@ -64,6 +69,6 @@ CLUSTERER <- function(indir, k=10) {
 
 ##############################################
 
-indir <- "results_biDE"
+CLUSTERER("results_biDE", parameters=c("Mode", "Ncells", "GenesUp", "GenesDown", "Prop", "Effect"))
+CLUSTERER("results_multiDE", parameters=c("Mode", "Overlap", "GenesUp", "GenesDown", "Prop", "Effect"))
 
-for (
