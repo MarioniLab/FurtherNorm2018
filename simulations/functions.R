@@ -19,6 +19,37 @@ sampleCounts <- function(means, dispersions) {
     matrix(rnbinom(length(means), mu=means, size=1/dispersions), ncol=ncol(means))
 }
 
+spawnScenarios <- function(...) 
+# Creates multiple listings of possible scenarios for a bpmapply to loop over.
+{
+    components <- list(...)
+    N <- prod(lengths(components))
+
+    output <- components
+    niter <- 1L
+    per.iter <- N
+    for (i in seq_along(components)) {
+        current <- components[[i]]
+        curN <- length(current)
+        output[[i]] <- rep(rep(current, each=per.iter/curN), niter)
+        niter <- niter * curN
+        per.iter <- per.iter / curN
+    }
+
+    return(output)
+}
+
+createBatchParam <- function(N) 
+# Creates a BatchtoolsParam object for common use across scripts. 
+# Assumes a SLURM cluster and a SLURM template.
+{
+    BatchtoolsParam(N,
+        cluster="slurm", template="slurm-aaron.tmpl",
+        logdir="parallel", log=TRUE,
+        RNGseed=10000L,
+        resources=list(walltime=20000, memory=8000, ncpus=1))
+}
+
 makeSFPlot <- function(sf, truth, is.de=NULL, main="", col="black") {
     logfold <- log2(sf) - log2(truth)
 
@@ -95,19 +126,19 @@ runAllMethods <- function(counts) {
 
     # Size factors with clustering prior to summation:
     if (ncol(counts) >= 200) {
-        emp.clusters <- quickCluster(counts)
+        emp.clusters <- quickCluster(counts, method="igraph")
+        final2.sf <- computeSumFactors(counts, sizes=sizes, clusters=emp.clusters, min.mean=0)
     } else {
-        emp.clusters <- rep(1, ncol(counts))
+        final2.sf <- final.sf
     }
-    final2.sf <- computeSumFactors(counts, sizes=sizes, clusters=emp.clusters, min.mean=0)
 
-#    # knn-based method
-#    final3.sf <- computeSumFactors(counts, mode="experimental", min.mean=0)
+    # Using a knn-based method for summation.
+    final3.sf <- quickSumFactors(counts, min.mean=0, approximate=TRUE)
 
     # Reporting all methods.
     return(list(TMM=tmm.sf, TMM.ave=tmm2.sf,
                 DESeq.geo=size.sf, DESeq.ave=size2.sf, DESeq.pseudo=sizeP.sf, DESeq.pseudo.lib=sizeP2.sf,
                 Lib=lib.sf,
-                Deconv=final.sf, Deconv.clust=final2.sf)) #Deconv.kNN=final3.sf))
+                Deconv=final.sf, Deconv.clust=final2.sf, QuickSum=final3.sf))
 }
 
