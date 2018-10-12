@@ -1,42 +1,54 @@
-# This checks the brittleness of the summation approach in the presence of DE genes.
+# This checks the performance of normalization methods in the presence of no DE genes.
+# First we define a function that simulates the data and evaluates each method.
 
-source("functions.R")
-dir.out <- "results_noDE"
-dir.create(dir.out, showWarnings=FALSE)
-fout <- file.path(dir.out, "summary.txt")
-is.there <- FALSE 
+FUN <- function(mode, ncells, dir.out) {
+    source("functions.R")
+    
+    prefix <- sprintf("%s-n%i", mode, ncells)
+    stub <- file.path(dir.out, prefix)
+    fout <- paste0(stub, ".tsv")
 
-for (mode in c("UMI", "read")) { 
-    dir.create(file.path(dir.out, mode), showWarnings=FALSE)
-    for (ncells in c(100, 200, 500, 1000)) { 
-        stub <- file.path(dir.out, mode, ncells)
+    for (it in 1:10) { 
+        param <- generateRawMeans(ncells=ncells, mode=mode)
+        truth <- param$sf
 
-###### BROKEN INDENTING ######
+        # Adding the requested DE.
+        mus <- param$fitted
+        counts <- sampleCounts(mus, param$dispersion)
+        output <- runAllMethods(counts)
+    
+        collected <- vector("list", length(output))
+        names(collected) <- names(output)
+        if (it==1L) {
+            # Generating an output plot for this simulation.
+            pdf(paste0(stub, ".pdf"))
+            par(mar=c(5.1,5.1,4.1,1.1))
+            for (x in names(output)) {
+                collected[[x]] <- evaluateSizeFactors(output[[x]], truth, main=x)["non-DE"]
+            }
+            dev.off()
+        } else {
+            for (x in names(output)) {
+                collected[[x]] <- evaluateSizeFactors(output[[x]], truth, plot=FALSE)["non-DE"]
+            }
+        }
 
-    param <- generateRawMeans(ncells=ncells, mode=mode)
-    truth <- param$sf
-    counts <- sampleCounts(param$fitted, param$dispersion)
-    output <- runAllMethods(counts)
-
-    # Generating an output plot for this simulation.
-    pdf(paste0(stub, ".pdf"))
-    par(mar=c(5.1,5.1,4.1,1.1))
-    collected <- vector("list", length(output))
-    names(collected) <- names(output)
-    for (x in names(output)) {
-        out <- makeSFPlot(output[[x]], truth, main=x)
-        collected[[x]] <- out["non-DE"]
+        # Writing summary statistics to table.
+        stats <- do.call(cbind, collected)
+        write.table(file=fout, data.frame(format(stats, digits=3)),
+                append=it!=1, quote=FALSE, sep="\t", col.names=it==1, row.names=FALSE)
     }
-    dev.off()
-
-    # Writing summary statistics to table.
-    stats <- do.call(cbind, collected)
-    write.table(file=fout, data.frame(Mode=mode, Ncells=ncells, format(stats, digits=3)),
-                append=is.there, quote=FALSE, sep="\t", col.names=!is.there, row.names=FALSE)
-    is.there <- TRUE
-
-###### END INDENTING ######
-
-    }
+    return(NULL)
 }
 
+source("functions.R")
+all.scenarios <- spawnScenarios(
+    mode=c("UMI", "read"), 
+    ncells=c(100, 200, 500, 1000))
+
+dir.out <- "results_noDE"
+dir.create(dir.out, showWarnings=FALSE)
+
+library(BiocParallel)
+BPPARAM <- createBatchParam(20)
+X <- do.call(bpmapply, c(list(FUN=FUN, SIMPLIFY=FALSE, USE.NAMES=FALSE, BPPARAM=BPPARAM, MoreArgs=list(dir.out=dir.out)), all.scenarios))
