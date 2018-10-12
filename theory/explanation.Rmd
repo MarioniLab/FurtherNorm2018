@@ -23,6 +23,8 @@ This exploits the reduced number of zeroes in the pool to avoid problems with ze
 
 # Identifying nearest neighbors
 
+## Background
+
 `quickSumFactors()` relies heavily on correct identification of nearest neighbors.
 There should be no systematic differential expression between each cell and its neighbors.
 Otherwise, the central assumption will not hold and the per-cell size factors will not be accurate in the presence of composition biases.
@@ -33,7 +35,11 @@ Conversely, weak composition biases may lead to incorrect neighbor detection but
 
 That said, neighbor detection is still difficult due to the noise in scRNA-seq data sets.
 At high dimensions, even obvious differences between populations are not easily detected, especially from read-based protocols.
-This necessitates some denoising prior to neighbor detection, which can be achieved with existing functions in `r Biocpkg("scran")`:
+This necessitates some denoising prior to neighbor detection.
+
+## Step-by-step denoising 
+
+Quick and dirty denoising can be achieved with existing functions in `r Biocpkg("scran")`:
 
 1. We compute log-transformed normalized values for the entire count matrix, using size factors derived from the library sizes.
 2. We apply `trendVar()` to fit a mean-variance trend to the _endogenous genes_.
@@ -84,8 +90,7 @@ This yields a stable profile against which all other $P_i$ can be normalized.
 ## Filtering on gene abundance
 
 We only compute this median across genes with high abundances to avoid problems with discreteness and low precision.
-Specifically, we require $T_i + T_r > t$ where $t$ is the threshold and $T_i = P_i/||P_i||_1$ (i.e., library size-normalized pooled profiles).
-There are several points of discussion here:
+Specifically, we require $T_i + T_r > t$ where $t$ is the threshold and $T_i$ is the library size-normalized $P_i$.
 
 - We do not use a global filter as this will favor retention of genes that are expressed in the majority of cells.
 This introduces imbalances in the sign of DE (and thus the accuracy of the median-based estimator) if $i$ is from a rare subpopulation.
@@ -93,4 +98,22 @@ This introduces imbalances in the sign of DE (and thus the accuracy of the media
 Again, this avoids imbalances in the sign of DE if $i$ is from a cell type that has different RNA content compared to $r$.
 
 See `manuscript/comments.Rmd` in https://github.com/MarioniLab/Deconvolution2016 for further thoughts on the choice of filtering strategy.
+
+# Choosing the number of neighbors
+
+The number of neighbors $k$ represents the minimum number of cells of any cell type or state.
+Reducing $k$ will increase the robustness of the algorithm to population heterogeneity.
+However, it will reduce the precision of the median-based estimator.
+It will also reduce accuracy for a number of reasons:
+
+- The median is a biased estimate of location when the sign of the DE is imbalanced.
+The magnitude of this bias depends on the variance of the ratios for the non-DE genes.
+If precision is decreased with lower $k$, the bias will subsequently increase.
+- The median estimate is justified on the basis that the non-DE ratios are unimodal and symmetric.
+We achieve this by invoking the central limit theorem on the pooled expression values.
+However, this requires sufficient neighbors _and_ minimal variance in $P_r$ in the denominator, which requires a "large" $k$.
+- Obviously, if $k$ is too low, $P_i$ or $P_r$ will contain zeroes and $f_i$ will not be sensible.
+
+Thus, $k$ should be set to the highest value that a user is willing to accept in terms of minimum population size.
+The default is to set $k=20$ but this can be increased to 100 for larger data sets.
 
