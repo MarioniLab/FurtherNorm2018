@@ -1,7 +1,7 @@
 ---
 title: Faster and more accurate scaling normalization
 author: Aaron Lun
-date: "`r Sys.date()`"
+date: "`r Sys.Date()`"
 output:
   BiocStyle::html_document:
     toc_float: yes
@@ -47,9 +47,50 @@ Similarly, the magnitude of the distances between cells is distorted in the pres
 We hope that these effects are negligible relative to the strong DE that introduced the composition bias in the first place.
 
 The use of the endogenous genes in **2** is primarily motivated by simplicity.
-We want to avoid the need to model of technical noise at this early stage of the analysis.
-As such, the trend captures both technical and biological noise across the majority of (presumably non-DE) genes.
+We want to avoid the need to model technical noise at this early stage of the analysis.
+As a result, the trend captures both technical and biological noise across the majority of (presumably non-DE) genes.
 This makes the denoising more aggressive by increasing the amount of variance and PCs to discard in **3**.
 If composition biases are present, the bulk of (presumably non-DE) genes will have inflated variances and the trend will be even higher.
 This further reduces the number of PCs to retain - though whether or not this is detrimental for neighbor detection is debatable.
- 
+
+# Normalization to the neighbors
+
+For each cell $i$, we construct a pooled expression profile based on its neighbors.
+We compute a tricube weight for each neighbor based on its distance, with the bandwidth set to 3-fold the distance to the median neighbor.
+This penalizes distant neighbors to weaken the assumption that there is no DE between the cell and its neighbors.
+The pooled expression profile $P_i$ is calculated as the weighted average of the count profiles for all neighbors.
+
+If the neighbors were identified correctly, there should be no composition bias between each cell and its set of neighbors.
+Thus, we can use library size normalization to compute a preliminary size factor $s_{i0}$ for each cell.
+This is simply the ratio of the total count for each cell to the sum of average values in $P_i$.
+We have no problems with zero counts as $s_{i0}$ must be positive.
+
+# Normalization between cells
+
+## Median-based normalization
+
+Given a reference cell $r$, we compute a rescaling factor $f_{i}$ by normalizing $P_i$ to $P_r$.
+$s_{i1}$ is defined as the median of the $P_i/P_r$ ratios across genes.
+The final size factor for each cell is defined as $s_i=s_{i0}f_i$.
+
+Our median-based strategy is equivalent to the _DESeq_ normalization and to the per-pool normalization used in `computeSumFactors()`.
+This protects against DE between the neighbor sets of different cells.
+By pooling across neighbors, we avoid problems with zeroes that would otherwise be encountered if we computed the median directly for each cell.
+
+We define $r$ as the cell with the lowest distance to the furthest neighbor.
+We aim to identify cells in dense parts of the expression space such that the pooled profile is precisely computed.
+This yields a stable profile against which all other $P_i$ can be normalized. 
+
+## Filtering on gene abundance
+
+We only compute this median across genes with high abundances to avoid problems with discreteness and low precision.
+Specifically, we require $T_i + T_r > t$ where $t$ is the threshold and $T_i = P_i/||P_i||_1$ (i.e., library size-normalized pooled profiles).
+There are several points of discussion here:
+
+- We do not use a global filter as this will favor retention of genes that are expressed in the majority of cells.
+This introduces imbalances in the sign of DE (and thus the accuracy of the median-based estimator) if $i$ is from a rare subpopulation.
+- We use $T_i$ rather than $P_i$ to avoid favoring retention of genes that are expressed in cells with larger library sizes.
+Again, this avoids imbalances in the sign of DE if $i$ is from a cell type that has different RNA content compared to $r$.
+
+See `manuscript/comments.Rmd` in https://github.com/MarioniLab/Deconvolution2016 for further thoughts on the choice of filtering strategy.
+
