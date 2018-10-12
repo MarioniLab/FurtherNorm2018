@@ -1,0 +1,119 @@
+---
+title: Faster and more accurate scaling normalization
+author: Aaron Lun
+date: "`r Sys.Date()`"
+output:
+  BiocStyle::html_document:
+    toc_float: yes
+---
+
+# Overview
+
+The `quickSumFactors()` approach is much simpler than the original `computeSumFactors()` algorithm.
+It proceeds in several steps:
+
+1. Identify nearest neighbors for each cell.
+2. Normalize each cell to the pooled profile of neighbors, based on library size normalization.
+3. Calibrate the size factors across cells by normalizing the pooled profiles to a reference profile.
+
+The central assumption is that each cell has negligible DE compared to its nearest neighbors.
+This enables library size normalization to be performed without fear of composition biases.
+Size factors are then calibrated across cells using median-based normalization on the pooled neighbors.
+This exploits the reduced number of zeroes in the pool to avoid problems with zeroes.
+
+# Identifying nearest neighbors
+
+## Background
+
+`quickSumFactors()` relies heavily on correct identification of nearest neighbors.
+There should be no systematic differential expression between each cell and its neighbors.
+Otherwise, the central assumption will not hold and the per-cell size factors will not be accurate in the presence of composition biases.
+
+For our purposes, normalization is made easier by the fact that differential expression causes composition biases.
+Strong composition biases must be caused by strong DE, which also makes it easier to correctly detect neighbors.
+Conversely, weak composition biases may lead to incorrect neighbor detection but will also have limited impact on the accuracy of the size factors.
+
+That said, neighbor detection is still difficult due to the noise in scRNA-seq data sets.
+At high dimensions, even obvious differences between populations are not easily detected, especially from read-based protocols.
+This necessitates some denoising prior to neighbor detection.
+
+## Step-by-step denoising 
+
+Quick and dirty denoising can be achieved with existing functions in `r Biocpkg("scran")`:
+
+1. We compute log-transformed normalized values for the entire count matrix, using size factors derived from the library sizes.
+2. We apply `trendVar()` to fit a mean-variance trend to the _endogenous genes_.
+3. We apply `denoisePCA()` to perform a PCA and choose the number of PCs to retain.
+4. The low-dimensional representation is used for the nearest-neighbor search.
+
+This presents an awkward chicken-and-egg problem where we need to denoise before normalizing - but also normalize before denoising!
+We use library size factors in **1** as we have no other choice.
+As such, composition biases will generally inflate the variance estimates for non-DE genes and reduce the variances for DE genes.
+Similarly, the magnitude of the distances between cells is distorted in the presence of composition biases.
+We hope that these effects are negligible relative to the strong DE that introduced the composition bias in the first place.
+
+The use of the endogenous genes in **2** is primarily motivated by simplicity.
+We want to avoid the need to model technical noise at this early stage of the analysis.
+As a result, the trend captures both technical and biological noise across the majority of (presumably non-DE) genes.
+This makes the denoising more aggressive by increasing the amount of variance and PCs to discard in **3**.
+If composition biases are present, the bulk of (presumably non-DE) genes will have inflated variances and the trend will be even higher.
+This further reduces the number of PCs to retain - though whether or not this is detrimental for neighbor detection is debatable.
+
+# Normalization to the neighbors
+
+For each cell $i$, we construct a pooled expression profile based on its neighbors.
+We compute a tricube weight for each neighbor based on its distance, with the bandwidth set to 3-fold the distance to the median neighbor.
+This penalizes distant neighbors to weaken the assumption that there is no DE between the cell and its neighbors.
+The pooled expression profile $P_i$ is calculated as the weighted average of the count profiles for all neighbors.
+
+If the neighbors were identified correctly, there should be no composition bias between each cell and its set of neighbors.
+Thus, we can use library size normalization to compute a preliminary size factor $s_{i0}$ for each cell.
+This is simply the ratio of the total count for each cell to the sum of average values in $P_i$.
+We have no problems with zero counts as $s_{i0}$ must be positive.
+
+# Normalization between cells
+
+## Median-based normalization
+
+Given a reference cell $r$, we compute a rescaling factor $f_{i}$ by normalizing $P_i$ to $P_r$.
+$s_{i1}$ is defined as the median of the $P_i/P_r$ ratios across genes.
+The final size factor for each cell is defined as $s_i=s_{i0}f_i$.
+
+Our median-based strategy is equivalent to the _DESeq_ normalization and to the per-pool normalization used in `computeSumFactors()`.
+This protects against DE between the neighbor sets of different cells.
+By pooling across neighbors, we avoid problems with zeroes that would otherwise be encountered if we computed the median directly for each cell.
+
+We define $r$ as the cell with the lowest distance to the furthest neighbor.
+We aim to identify cells in dense parts of the expression space such that the pooled profile is precisely computed.
+This yields a stable profile against which all other $P_i$ can be normalized. 
+
+## Filtering on gene abundance
+
+We only compute this median across genes with high abundances to avoid problems with discreteness and low precision.
+Specifically, we require $T_i + T_r > t$ where $t$ is the threshold and $T_i$ is the library size-normalized $P_i$.
+
+- We do not use a global filter as this will favor retention of genes that are expressed in the majority of cells.
+This introduces imbalances in the sign of DE (and thus the accuracy of the median-based estimator) if $i$ is from a rare subpopulation.
+- We use $T_i$ rather than $P_i$ to avoid favoring retention of genes that are expressed in cells with larger library sizes.
+Again, this avoids imbalances in the sign of DE if $i$ is from a cell type that has different RNA content compared to $r$.
+
+See `manuscript/comments.Rmd` in https://github.com/MarioniLab/Deconvolution2016 for further thoughts on the choice of filtering strategy.
+
+# Choosing the number of neighbors
+
+The number of neighbors $k$ represents the minimum number of cells of any cell type or state.
+Reducing $k$ will increase the robustness of the algorithm to population heterogeneity.
+However, it will reduce the precision of the median-based estimator.
+It will also reduce accuracy for a number of reasons:
+
+- The median is a biased estimate of location when the sign of the DE is imbalanced.
+The magnitude of this bias depends on the variance of the ratios for the non-DE genes.
+If precision is decreased with lower $k$, the bias will subsequently increase.
+- The median estimate is justified on the basis that the non-DE ratios are unimodal and symmetric.
+We achieve this by invoking the central limit theorem on the pooled expression values.
+However, this requires sufficient neighbors _and_ minimal variance in $P_r$ in the denominator, which requires a "large" $k$.
+- Obviously, if $k$ is too low, $P_i$ or $P_r$ will contain zeroes and $f_i$ will not be sensible.
+
+Thus, $k$ should be set to the highest value that a user is willing to accept in terms of minimum population size.
+The default is to set $k=20$ but this can be increased to 100 for larger data sets.
+
