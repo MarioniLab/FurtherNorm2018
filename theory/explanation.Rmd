@@ -1,0 +1,55 @@
+---
+title: Faster and more accurate scaling normalization
+author: Aaron Lun
+date: "`r Sys.date()`"
+output:
+  BiocStyle::html_document:
+    toc_float: yes
+---
+
+# Overview
+
+The `quickSumFactors()` approach is much simpler than the original `computeSumFactors()` algorithm.
+It proceeds in several steps:
+
+1. Identify nearest neighbors for each cell.
+2. Normalize each cell to the pooled profile of neighbors, based on library size normalization.
+3. Calibrate the size factors across cells by normalizing the pooled profiles to a reference profile.
+
+The central assumption is that each cell has negligible DE compared to its nearest neighbors.
+This enables library size normalization to be performed without fear of composition biases.
+Size factors are then calibrated across cells using median-based normalization on the pooled neighbors.
+This exploits the reduced number of zeroes in the pool to avoid problems with zeroes.
+
+# Identifying nearest neighbors
+
+`quickSumFactors()` relies heavily on correct identification of nearest neighbors.
+There should be no systematic differential expression between each cell and its neighbors.
+Otherwise, the central assumption will not hold and the per-cell size factors will not be accurate in the presence of composition biases.
+
+For our purposes, normalization is made easier by the fact that differential expression causes composition biases.
+Strong composition biases must be caused by strong DE, which also makes it easier to correctly detect neighbors.
+Conversely, weak composition biases may lead to incorrect neighbor detection but will also have limited impact on the accuracy of the size factors.
+
+That said, neighbor detection is still difficult due to the noise in scRNA-seq data sets.
+At high dimensions, even obvious differences between populations are not easily detected, especially from read-based protocols.
+This necessitates some denoising prior to neighbor detection, which can be achieved with existing functions in `r Biocpkg("scran")`:
+
+1. We compute log-transformed normalized values for the entire count matrix, using size factors derived from the library sizes.
+2. We apply `trendVar()` to fit a mean-variance trend to the _endogenous genes_.
+3. We apply `denoisePCA()` to perform a PCA and choose the number of PCs to retain.
+4. The low-dimensional representation is used for the nearest-neighbor search.
+
+This presents an awkward chicken-and-egg problem where we need to denoise before normalizing - but also normalize before denoising!
+We use library size factors in **1** as we have no other choice.
+As such, composition biases will generally inflate the variance estimates for non-DE genes and reduce the variances for DE genes.
+Similarly, the magnitude of the distances between cells is distorted in the presence of composition biases.
+We hope that these effects are negligible relative to the strong DE that introduced the composition bias in the first place.
+
+The use of the endogenous genes in **2** is primarily motivated by simplicity.
+We want to avoid the need to model of technical noise at this early stage of the analysis.
+As such, the trend captures both technical and biological noise across the majority of (presumably non-DE) genes.
+This makes the denoising more aggressive by increasing the amount of variance and PCs to discard in **3**.
+If composition biases are present, the bulk of (presumably non-DE) genes will have inflated variances and the trend will be even higher.
+This further reduces the number of PCs to retain - though whether or not this is detrimental for neighbor detection is debatable.
+ 
