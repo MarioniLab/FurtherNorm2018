@@ -103,6 +103,10 @@ Again, this avoids imbalances in the sign of DE if $i$ is from a cell type that 
 
 See `manuscript/comments.Rmd` in https://github.com/MarioniLab/Deconvolution2016 for further thoughts on the choice of filtering strategy.
 
+Filtering is only performed during the median-based normalization and not during the nearest neighbor detection.
+This mirrors our actual analyses where the variance modelling and PCA are the only feature selection steps.
+In particular, filtering on the global average may discriminate against marker genes for rare populations, which would interfere with correct neighbor detection.
+
 # Choosing the number of neighbors
 
 The number of neighbors $k$ represents the minimum number of cells of any cell type or state.
