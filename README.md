@@ -1,4 +1,4 @@
-# Further MNN algorithm development
+# Further scaling normalization
 
 ## Overview
 
