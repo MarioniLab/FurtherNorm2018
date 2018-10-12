@@ -87,6 +87,10 @@ We define $r$ as the cell with the lowest distance to the furthest neighbor.
 We aim to identify cells in dense parts of the expression space such that the pooled profile is precisely computed.
 This yields a stable profile against which all other $P_i$ can be normalized. 
 
+We use a reference cell rather than creating a reference by averaging across all cells.
+This means that we only need to assume that most genes are non-DE between $i$ and $r$ (and not necessarily the same genes for different $i$).
+Such an assumption is weaker than requiring a non-DE majority across all cells, which is not appropriate for highly heterogeneous populations.
+
 ## Filtering on gene abundance
 
 We only compute this median across genes with high abundances to avoid problems with discreteness and low precision.
@@ -117,3 +121,21 @@ However, this requires sufficient neighbors _and_ minimal variance in $P_r$ in t
 Thus, $k$ should be set to the highest value that a user is willing to accept in terms of minimum population size.
 The default is to set $k=20$ but this can be increased to 100 for larger data sets.
 
+# Advantages compared to `computeSumFactors()`
+
+- `quickSumFactors()` does not solve a linear system.
+This avoids problems with "concentration" of the median bias in `computeSumFactors()`, which results in inaccurate size factors for cells from minority populations.
+It is also faster and more stable, avoiding a segmentation fault in `r CRANpkg("Matrix")` when the number of cells is too large.
+- `computeSumFactors()` relied on a pre-clustering step to break up heterogeneous populations prior to deconvolution.
+This is no longer necessary with `quickSumFactors()` due to the pairwise comparisons to the reference cell $r$.
+We save some time by avoiding the need to compute ranks, perform a PCA on a dense matrix and realize the NN graph into explicit clusters.
+
+We tested the performance of each method across a number of simulation scenarios in the `simulations` directory.
+In most scenarios, `quickSumFactors()` is more accurate than `computeSumFactors()` without preclustering.
+It is also comparable to or better than `computeSumFactors()` with preclustering when dealing with data sets with multiple subpopulations.
+Indeed, most of the loss of performance from `quickSumFactors()` is due to a lower-than-strictly-necessary $k$.
+
+The counter-argument is that `quickSumFactors()` is heavily dependent on correct nearest neighbor detection.
+By comparison, `computeSumFactors()` is robust to mis-clustering as each pool-based size factor is estimated using the median.
+While this is true, the bias concentration seems to offset a lot of the purported robustness benefits from `computeSumFactors()`.
+Even if `quickSumFactors()` does not dominate `computeSumFactors()` completely, it is more practical - and definitely preferable to library size normalization. 
