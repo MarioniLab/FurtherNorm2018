@@ -50,7 +50,7 @@ createBatchParam <- function(N)
         resources=list(walltime=20000, memory=8000, ncpus=1))
 }
 
-makeSFPlot <- function(sf, truth, is.de=NULL, main="", col="black") {
+evaluateSizeFactors <- function(sf, truth, is.de=NULL, plot=TRUE, main="", col="black") {
     logfold <- log2(sf) - log2(truth)
 
     if (is.null(is.de)) {
@@ -62,15 +62,6 @@ makeSFPlot <- function(sf, truth, is.de=NULL, main="", col="black") {
     }
 
     obs <- truth * 2^resids
-    all.range <- range(range(truth), range(obs))
-    col <- rep(col, length.out=length(sf))
-    shuffle <- sample(length(sf))
-    
-    plot(truth[shuffle], obs[shuffle], xlim=all.range, ylim=all.range, 
-         ylab="Estimated factors", xlab="True factors", log="xy", pch=16, 
-         col=col[shuffle], cex.axis=1.5, cex.lab=1.8, main=main, cex.main=1.8)
-    abline(0, 1, col="red")
-
     if (!is.null(is.de)) {
         non.DE.err <- 2^sqrt(mean(resids[-is.de]^2))-1
         DE.err <- 2^sqrt(mean(resids[is.de]^2))-1
@@ -79,10 +70,21 @@ makeSFPlot <- function(sf, truth, is.de=NULL, main="", col="black") {
         non.DE.err <- 2^sqrt(mean(resids^2))-1
         err.all <- c("non-DE"=non.DE.err)
     }
-    err.formatted <- format(round(err.all*100, 1), nsmall=1)
 
-    legend("topleft", bty="n", cex=1.2,
-           legend=paste0(names(err.formatted), " error = ", err.formatted, "%"))
+    if (plot) {
+        all.range <- range(range(truth), range(obs))
+        col <- rep(col, length.out=length(sf))
+        shuffle <- sample(length(sf))
+ 
+        plot(truth[shuffle], obs[shuffle], xlim=all.range, ylim=all.range, 
+            ylab="Estimated factors", xlab="True factors", log="xy", pch=16, 
+            col=col[shuffle], cex.axis=1.5, cex.lab=1.8, main=main, cex.main=1.8)
+        abline(0, 1, col="red")
+    
+        err.formatted <- format(round(err.all*100, 1), nsmall=1)
+        legend("topleft", bty="n", cex=1.2,
+            legend=paste0(names(err.formatted), " error = ", err.formatted, "%"))
+    }
     return(err.all)
 }
 
