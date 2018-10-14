@@ -2,7 +2,7 @@
 # First we define a function that simulates the data and evaluates each method.
 
 FUN <- function(mode, ncells, genes.up, genes.down, prop, effect, dir.out) {
-    source("functions.R")
+    library(FurtherNorm2018) 
 
     # Skipping impossible scenarios.
     if (genes.up==0 && genes.down==0) {
@@ -59,7 +59,7 @@ FUN <- function(mode, ncells, genes.up, genes.down, prop, effect, dir.out) {
 
 ##############################################
 
-source("functions.R")
+library(FurtherNorm2018) 
 all.scenarios <- spawnScenarios(
     mode=c("UMI", "read"), 
     ncells=c(100, 200, 500, 1000),

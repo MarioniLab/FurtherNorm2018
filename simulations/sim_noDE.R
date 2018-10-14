@@ -2,8 +2,8 @@
 # First we define a function that simulates the data and evaluates each method.
 
 FUN <- function(mode, ncells, dir.out) {
-    source("functions.R")
-    
+    library(FurtherNorm2018)
+
     prefix <- sprintf("%s-n%i", mode, ncells)
     stub <- file.path(dir.out, prefix)
     fout <- paste0(stub, ".tsv")
@@ -41,7 +41,9 @@ FUN <- function(mode, ncells, dir.out) {
     return(NULL)
 }
 
-source("functions.R")
+##############################################
+
+library(FurtherNorm2018)
 all.scenarios <- spawnScenarios(
     mode=c("UMI", "read"), 
     ncells=c(100, 200, 500, 1000))
