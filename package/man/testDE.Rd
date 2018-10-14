@@ -4,7 +4,7 @@
 \alias{testDE}
 \title{Test for DE}
 \usage{
-testDE(counts, sf, group1, group2, threshold = 0.1, lfc = 1)
+testDE(counts, sf, group1, group2, lfc = 1)
 }
 \arguments{
 \item{counts}{Numeric matrix, count data for genes (in rows) and cells/samples (in columns).}
@@ -14,8 +14,6 @@ testDE(counts, sf, group1, group2, threshold = 0.1, lfc = 1)
 \item{group1}{Integer vector, identities of cells in the first group.}
 
 \item{group2}{Integer vector, identities of cells in the second group.}
-
-\item{threshold}{Numeric scalar, threshold on the average count to remove low-abundance genes prior to testing.}
 
 \item{lfc}{Numeric scalar, threshold on the log-fold change for \code{\link{glmTreat}}.}
 }
