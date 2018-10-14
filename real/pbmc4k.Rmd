@@ -1,0 +1,112 @@
+---
+title: Effect of normalization on the PBMC 4K data set
+author: Aaron Lun
+date: "`r Sys.Date()`"
+output:
+  BiocStyle::html_document:
+    toc_float: true
+---    
+
+```{r}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+set.seed(10000)    
+```
+
+# Loading in the data
+
+Here we use the PBMC 4K data set from 10X Genomics.
+
+```{r}
+library(BiocFileCache)
+bfc <- BiocFileCache(ask = FALSE)
+raw.path <- bfcrpath(bfc, file.path("http://cf.10xgenomics.com/samples",
+    "cell-exp/2.1.0/pbmc4k/pbmc4k_filtered_gene_bc_matrices.tar.gz"))
+out.dir <- file.path(tempdir(), "pbmc4k")
+untar(raw.path, exdir=out.dir)
+
+library(DropletUtils)
+fname <- file.path(out.dir, "filtered_gene_bc_matrices/GRCh38")
+sce <- read10xCounts(fname, col.names=TRUE)
+sce
+```
+
+# Evaluating size factors
+
+We compute size factors with a variety of strategies:
+
+```{r}
+library(FurtherNorm2018)
+all.sf <- runAllMethods(counts(sce), threshold=0.1)
+lapply(all.sf, summary)
+```
+
+If the size factors are accurate, per-cluster normalization factors computed from normalized counts should be close to 1.
+Otherwise, if any composition biases are still present, we should see that in the comparisons between cluster average profiles.
+First, we download the clustering information:
+
+```{r}
+clust.path <- bfcrpath(bfc,
+    "http://cf.10xgenomics.com/samples/cell-exp/2.1.0/pbmc4k/pbmc4k_analysis.tar.gz")
+clust.dir <- file.path(tempdir(), "clustering")
+untar(clust.path, exdir=clust.dir)
+
+clusters <- read.csv(file.path(clust.dir, "analysis/clustering",
+    "kmeans_10_clusters/clusters.csv"))
+clusters <- clusters[match(colnames(sce), clusters$Barcode),]
+head(clusters)
+```
+
+We then assess the performance of each clustering method based on the presence of composition biases between clusters.
+We remove very small clusters for which calculations are likely to be inaccurate:
+
+```{r}
+cell.types <- clusters$Cluster
+freq <- table(cell.types)
+to.use <- cell.types %in% names(freq)[freq > 20]
+lapply(all.sf, FUN=function(sf) { 
+    clusterBias(counts(sce)[,to.use], sf[to.use], clust=cell.types[to.use]) 
+})
+```
+
+Indeed, we can see that library size normalization exhibits a ~30% bias for one of the clusters.
+
+# Examining downstream effects
+
+We will focus on clusters 1 and 6, which have the most obvious difference in terms of composition bias:
+
+```{r}
+sf.l <- all.sf$Lib
+sf.q <- all.sf$QuickSum
+plot(sf.l, sf.q, xlab="Library size factors", ylab="Quicksum size factors", log="xy")
+is.1 <- which(cell.types=="1")
+points(sf.l[is.1], sf.q[is.1], col="orange")
+is.6 <- which(cell.types=="6")
+points(sf.l[is.6], sf.q[is.6], col="dodgerblue")
+```
+
+Testing for DE between clusters with `r Biocpkg("edgeR")`:
+Clearly there is a difference when we account for composition biases:
+
+```{r}
+keep <- scater::calcAverage(sce) > 0.1
+subcounts <- counts(sce)[keep,]
+res.q <- testDE(subcounts, sf.q, is.1, is.6)
+res.l <- testDE(subcounts, sf.l, is.1, is.6)
+
+library(edgeR)
+table(decideTestsDGE(res.q), decideTestsDGE(res.l))
+```
+
+By comparison, `computeSumFactors()` and `quickSumFactors()` are in greater agreement:
+    
+```{r}
+sf.d <- all.sf$Deconv.clust
+res.d <- testDE(subcounts, sf.d, is.1, is.6)
+table(decideTestsDGE(res.d), decideTestsDGE(res.q))
+```
+
+# Session information
+
+```{r}
+sessionInfo()
+```
