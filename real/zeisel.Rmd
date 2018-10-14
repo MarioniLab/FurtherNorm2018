@@ -81,8 +81,8 @@ Clearly there is a difference when we account for composition biases:
 ```{r}
 keep <- scater::calcAverage(counts) > 0.1
 subcounts <- counts[keep,]
-res.q <- testDE(subcounts, sf.q, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
-res.l <- testDE(subcounts, sf.l, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
+res.q <- testDE(subcounts, sf.q, is.oligo, is.pyramidal)
+res.l <- testDE(subcounts, sf.l, is.oligo, is.pyramidal)
 
 library(edgeR)
 table(decideTestsDGE(res.q), decideTestsDGE(res.l))
@@ -92,7 +92,7 @@ By comparison, `computeSumFactors()` and `quickSumFactors()` are in greater agre
 
 ```{r}
 sf.d <- all.sf$Deconv.clust
-res.d <- testDE(subcounts, sf.d, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
+res.d <- testDE(subcounts, sf.d, is.oligo, is.pyramidal)
 table(decideTestsDGE(res.d), decideTestsDGE(res.q))
 ```
 
