@@ -13,7 +13,7 @@
 #' \item DESeq normalization with \code{\link{estimateSizeFactorsForMatrix}}, where all zeroes are ignored during calculation of the geometric mean.
 #' \item DESeq normalization using the arithmetic mean.
 #' \item DESeq normalization with an added pseudo-count of 1.
-#' \item DESeq normalization with a library size-adjusted pseudo-count
+#' \item DESeq normalization with a library size-adjusted pseudo-count.
 #' \item Library size normalization with \code{\link{librarySizeFactors}}.
 #' \item Deconvolution with \code{\link{computeSumFactors}} and without any pre-clustering.
 #' \item Deconvolution with \code{\link{computeSumFactors}} and pre-clustering with \code{\link{quickCluster}}.
