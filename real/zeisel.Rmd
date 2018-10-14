@@ -9,6 +9,7 @@ output:
 
 ```{r}
 knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+set.seed(100000)
 ```
 
 # Loading in the data
@@ -30,7 +31,13 @@ readFormat <- function(infile) {
     return(list(metadata=metadata, counts=counts))
 }
 
-cellular <- readFormat("expression_mRNA_17-Aug-2014.txt")
+library(BiocFileCache)
+bfc <- BiocFileCache(ask = FALSE)
+base.url <- file.path("https://storage.googleapis.com",
+    "linnarsson-lab-www-blobs/blobs/cortex")
+mRNA.path <- bfcrpath(bfc, file.path(base.url, 
+    "expression_mRNA_17-Aug-2014.txt"))
+cellular <- readFormat(mRNA.path)
 counts <- cellular$counts
 ```
 
@@ -39,44 +46,17 @@ counts <- cellular$counts
 We compute size factors with a variety of strategies:
 
 ```{r}
-library(scran)
-sf.q <- quickSumFactors(counts, approximate=TRUE, min.mean=0.1)
-summary(sf.q)
-
-clust <- quickCluster(counts, method="igraph", min.mean=0.1)
-sf.d <- computeSumFactors(counts, min.mean=0.1, clusters=clust)
-summary(sf.d)
-
-library(scater)
-sf.l <- librarySizeFactors(counts)
-summary(sf.l)
+library(FurtherNorm2018)
+all.sf <- runAllMethods(counts, threshold=0.1)
+lapply(all.sf, summary)
 ```
 
 If the size factors are accurate, per-cluster normalization factors computed from normalized counts should be close to 1.
 Otherwise, if any composition biases are still present, we should see that in the comparisons between cluster average profiles.
 
 ```{r}
-library(edgeR)
-assessSizeFactors <- function(counts, sf, clust, threshold=0.1) {
-    out <- normalizeCounts(counts, size_factors=sf, return_log=FALSE)
-
-    U <- unique(clust)
-    collected <- vector("list", length(U))
-    names(collected) <- U
-    for (x in U) {
-        chosen <- clust==x
-        collected[[x]] <- rowMeans(out[,chosen,drop=FALSE])
-    }
-    by.clust <- do.call(cbind, collected)
-
-    keep <- calcAverage(by.clust) > threshold
-    calcNormFactors(by.clust[keep,], lib.size=rep(mean(colSums(by.clust)), ncol(by.clust)))
-}
-
 cell.types <- cellular$metadata$level1class
-assessSizeFactors(counts, sf.q, cell.types)
-assessSizeFactors(counts, sf.d, cell.types)
-assessSizeFactors(counts, sf.l, cell.types)
+lapply(all.sf, FUN=clusterBias, counts=counts, clust=cell.types)
 ```
 
 Indeed, we can see that library size normalization exhibits a ~30% bias for one of the clusters.
@@ -86,6 +66,8 @@ Indeed, we can see that library size normalization exhibits a ~30% bias for one 
 We will focus on oligodendrocytes and pyramidal neurons, which have an obvious difference in terms of composition bias:
 
 ```{r}
+sf.l <- all.sf$Lib
+sf.q <- all.sf$QuickSum
 plot(sf.l, sf.q, xlab="Library size factors", ylab="Quicksum size factors", log="xy")
 is.oligo <- which(cell.types=="oligodendrocytes")
 points(sf.l[is.oligo], sf.q[is.oligo], col="orange")
@@ -93,33 +75,26 @@ is.pyramidal <- which(cell.types=="pyramidal CA1")
 points(sf.l[is.pyramidal], sf.q[is.pyramidal], col="dodgerblue")
 ```
 
-Testing for DE between oligodendrocytes and pyramidal neurons with `r Biocpkg("edgeR")`:
+Testing for DE between oligodendrocytes and pyramidal neurons with `r Biocpkg("edgeR")`.
+Clearly there is a difference when we account for composition biases:
 
 ```{r}
-testEdgeR <- function(counts, sf, group1, group2) {
-    to.use <- counts[,c(group1, group2)]
-    sf.use <- sf[c(group1, group2)]
-    nf <- sf.use/colSums(to.use)
-    nf <- nf/mean(nf)
-    y <- DGEList(to.use, norm.factors=nf)
-    y <- y[aveLogCPM(y) > 0.1,]
+keep <- scater::calcAverage(counts) > 0.1
+subcounts <- counts[keep,]
+res.q <- testDE(subcounts, sf.q, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
+res.l <- testDE(subcounts, sf.l, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
 
-    g <- factor(rep(1:2, c(length(group1), length(group2))))
-    design <- model.matrix(~g)
-    y <- estimateDisp(y, design)
-    fit <- glmFit(y, design)
-    glmTreat(fit, lfc=1)
-}
-
-res.q <- testEdgeR(counts, sf.q, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
-res.d <- testEdgeR(counts, sf.d, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
-table(decideTestsDGE(res.d), decideTestsDGE(res.l))
-
-res.l <- testEdgeR(counts, sf.l, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
+library(edgeR)
 table(decideTestsDGE(res.q), decideTestsDGE(res.l))
 ```
 
-... so clearly there is a difference when we account for composition biases.
+By comparison, `computeSumFactors()` and `quickSumFactors()` are in greater agreement:
+
+```{r}
+sf.d <- all.sf$Deconv.clust
+res.d <- testDE(subcounts, sf.d, which(cell.types=="oligodendrocytes"), which(cell.types=="pyramidal CA1"))
+table(decideTestsDGE(res.d), decideTestsDGE(res.q))
+```
 
 # Session information
 
