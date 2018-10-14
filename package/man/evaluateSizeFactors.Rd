@@ -21,23 +21,23 @@ evaluateSizeFactors(sf, truth, is.de = NULL, plot = TRUE, main = "",
 \item{col}{String or character vector, point colors for all cells.}
 }
 \value{
-A numeric scalar containing the MSE for size factors of cells with no DE.
-If \code{is.de} is specified, this is a numeric vector of length two, containing additionally the MSE for the cells with DE.
+A numeric scalar containing the MSLE for size factors of cells with no DE.
+If \code{is.de} is specified, this is a numeric vector of length two, containing additionally the MSLE for the cells with DE.
 
 If \code{plot=TRUE}, a plot of the true and estimated size factors is generated on the current graphics device.
 }
 \description{
-Estimate the mean squared error of the size factors compared to their true values.
+Estimate the mean squared log-error (MSLE) of the size factors compared to their true values.
 }
 \details{
 This function will compute the log-fold change of \code{sf} from \code{truth}.
 It will correct for any shift in location from zero using \code{\link{rlm}}, as these do not affect relative interpretation of the size factors.
 If \code{is.de=NULL}, all cells are assumed to be from the same population.
-The MSE across all cells is then computed using the residuals of the fit.
+The MSLE across all cells is then computed using the residuals of the fit.
 
 If \code{is.de} is specified, the shift in location is estimated from the cells that are \emph{not} in \code{is.de}.
 This represents the \dQuote{baseline} cell population for which no DE genes were added.
-The MSE of this baseline population is estimated separately from the MSE across all of the \code{is.de} cells (after correcting for the shift).
+The MSLE of this baseline population is estimated separately from the MSLE across all of the \code{is.de} cells (after correcting for the shift).
 This enables separate evaluation of size factors in the presence of composition biases introduced by DE genes.
 }
 \examples{
@@ -48,4 +48,7 @@ evaluateSizeFactors(sf, truth)
 is.de <- 1:20
 sf[is.de] <- sf[is.de] * 1.1
 evaluateSizeFactors(sf, truth, is.de)
+}
+\author{
+Aaron Lun
 }
