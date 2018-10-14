@@ -7,7 +7,7 @@
 #' @param mode String, type of scRNA-seq data.
 #'
 #' @details
-#' All counts are presumed to be sampled from a negative binomial (NB) distribution.
+#' All counts are presumed to be sampled from a negative binomial (NB) distribution (see \code{\link{sampleCounts}}).
 #' The mean of the distribution for any observation is the product of the gene-specific mean and the cell-specific size factor.
 #' The size factor for each cell is sampled from a log-normal distribution.
 #' 
@@ -26,6 +26,9 @@
 #' @author Aaron Lun
 #' @export
 #' @importFrom stats rgamma runif rnorm
+#'
+#' @seealso
+#' \code{\link{sampleCounts}} to actually simulate count data.
 #'
 #' @examples
 #' out <- generateRawMeans()

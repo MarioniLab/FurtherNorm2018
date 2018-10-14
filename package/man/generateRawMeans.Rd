@@ -24,7 +24,7 @@ and \code{sf}, a numeric vector of the true cell-specific size factors.
 Compute the mean expression of each gene across a population of cells, assuming no DE genes.
 }
 \details{
-All counts are presumed to be sampled from a negative binomial (NB) distribution.
+All counts are presumed to be sampled from a negative binomial (NB) distribution (see \code{\link{sampleCounts}}).
 The mean of the distribution for any observation is the product of the gene-specific mean and the cell-specific size factor.
 The size factor for each cell is sampled from a log-normal distribution.
 
@@ -37,6 +37,9 @@ This mimics what is observed in many read-based data sets, with parameters taken
 \examples{
 out <- generateRawMeans()
 str(out)
+}
+\seealso{
+\code{\link{sampleCounts}} to actually simulate count data.
 }
 \author{
 Aaron Lun
