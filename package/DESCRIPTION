@@ -1,0 +1,13 @@
+Package: FurtherNorm2018
+Authors@R: person("Aaron", "Lun", role=c("aut", "cre"), 
+    email="infinite.monkeys.with.keyboards@gmail.com")
+Version: 1.0.0
+Date: 2018-10-14
+Title: Evaluation of Single-cell Normalization Methods 
+Description: Provides functions for simple simulation of 
+    single-cell data and comparison of estimated size factors
+    to the known truth. Also provides wrappers to run a 
+    variety of size factor calculation algorithms.
+Depends: edgeR, scran, DESeq2
+Imports: stats
+RoxygenNote: 6.1.0
