@@ -8,6 +8,6 @@ Description: Provides functions for simple simulation of
     single-cell data and comparison of estimated size factors
     to the known truth. Also provides wrappers to run a 
     variety of size factor calculation algorithms.
-Depends: edgeR, scran, DESeq2
-Imports: stats
+Depends: BiocParallel
+Imports: stats, edgeR, scran, DESeq2
 RoxygenNote: 6.1.0
