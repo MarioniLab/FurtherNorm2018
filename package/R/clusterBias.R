@@ -35,6 +35,7 @@
 #' clust <- sample(3, ncol(counts), replace=TRUE)
 #' clusterBias(counts, sf, clust)
 clusterBias <- function(counts, sf, clust, threshold=0.1) {
+    sf <- sf/mean(sf)
     out <- normalizeCounts(counts, size_factors=sf, return_log=FALSE)
 
     U <- unique(clust)
