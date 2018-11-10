@@ -5,6 +5,8 @@
 #' @param counts Numeric matrix, count data for genes (in rows) and cells/samples (in columns).
 #' @param sf Numeric vector, size factors for all cells.
 #' @param clust Factor, cluster identity for each cell.
+#' @param groups Character vector of cluster identities for which to compute bias.
+#' Clusters with low numbers of cells should be ignored.
 #' @param threshold Numeric scalar, threshold on the average count for bias estimation.
 #'
 #' @details
@@ -34,11 +36,20 @@
 #' sf <- scater::librarySizeFactors(counts)
 #' clust <- sample(3, ncol(counts), replace=TRUE)
 #' clusterBias(counts, sf, clust)
-clusterBias <- function(counts, sf, clust, threshold=0.1) {
+clusterBias <- function(counts, sf, clust, groups=NULL, threshold=0) {
+    clust <- as.factor(clust)
+    U <- levels(clust)
+    if (!is.null(groups)) {
+        keep <- clust %in% groups
+        counts <- counts[,keep,drop=FALSE]
+        sf <- sf[keep]
+        clust <- clust[keep]
+        U <- intersect(U, groups)
+    }
+
     sf <- sf/mean(sf)
     out <- normalizeCounts(counts, size_factors=sf, return_log=FALSE)
 
-    U <- unique(clust)
     collected <- vector("list", length(U))
     names(collected) <- U
     for (x in U) {

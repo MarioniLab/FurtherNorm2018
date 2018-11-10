@@ -10,4 +10,4 @@ Description: Provides functions for simple simulation of
     variety of size factor calculation algorithms.
 Depends: BiocParallel
 Imports: stats, edgeR, scran, DESeq2, MASS, scater, Matrix
-RoxygenNote: 6.1.0
+RoxygenNote: 6.1.1

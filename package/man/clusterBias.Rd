@@ -4,7 +4,7 @@
 \alias{clusterBias}
 \title{Cluster-specific composition bias}
 \usage{
-clusterBias(counts, sf, clust, threshold = 0.1)
+clusterBias(counts, sf, clust, groups = NULL, threshold = 0)
 }
 \arguments{
 \item{counts}{Numeric matrix, count data for genes (in rows) and cells/samples (in columns).}
@@ -12,6 +12,9 @@ clusterBias(counts, sf, clust, threshold = 0.1)
 \item{sf}{Numeric vector, size factors for all cells.}
 
 \item{clust}{Factor, cluster identity for each cell.}
+
+\item{groups}{Character vector of cluster identities for which to compute bias.
+Clusters with low numbers of cells should be ignored.}
 
 \item{threshold}{Numeric scalar, threshold on the average count for bias estimation.}
 }
