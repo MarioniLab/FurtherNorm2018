@@ -56,10 +56,10 @@ Otherwise, if any composition biases are still present, we should see that in th
 
 ```{r}
 cell.types <- cellular$metadata$level1class
-lapply(all.sf, FUN=clusterBias, counts=counts, clust=cell.types)
+lapply(all.sf, FUN=clusterBias, counts=counts, clust=cell.types, threshold=0.1)
 ```
 
-Indeed, we can see that library size normalization exhibits a ~30% bias for one of the clusters.
+Indeed, we can see that library size normalization exhibits a ~20% bias for one of the clusters.
 
 # Examining downstream effects
 

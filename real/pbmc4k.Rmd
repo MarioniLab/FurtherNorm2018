@@ -62,10 +62,9 @@ We remove very small clusters for which calculations are likely to be inaccurate
 ```{r}
 cell.types <- clusters$Cluster
 freq <- table(cell.types)
-to.use <- cell.types %in% names(freq)[freq > 20]
-lapply(all.sf, FUN=function(sf) { 
-    clusterBias(counts(sce)[,to.use], sf[to.use], clust=cell.types[to.use]) 
-})
+to.use <- names(freq)[freq > 20]
+lapply(all.sf, FUN=clusterBias, counts=counts(sce), 
+    clust=cell.types, groups=to.use, threshold=0.1) 
 ```
 
 Indeed, we can see that library size normalization exhibits a ~30% bias for one of the clusters.
