@@ -17,7 +17,6 @@
 #' \item Library size normalization with \code{\link{librarySizeFactors}}.
 #' \item Deconvolution with \code{\link{computeSumFactors}} and without any pre-clustering.
 #' \item Deconvolution with \code{\link{computeSumFactors}} and pre-clustering with \code{\link{quickCluster}}.
-#' \item The nearest-neighbor approach in \code{\link{simpleSumFactors}}.
 #' }
 #' For the TMM and DESeq approaches, filtering on \code{threshold} is performed based on the average abundances computed from \code{\link{calcAverage}}.
 #' For the \pkg{scran}-based methods, filtering is done by passing \code{threshold} to the \code{min.mean} arguments.
@@ -31,7 +30,7 @@
 #' @export
 #' @importFrom edgeR calcNormFactors
 #' @importFrom DESeq2 estimateSizeFactorsForMatrix
-#' @importFrom scran quickCluster computeSumFactors simpleSumFactors
+#' @importFrom scran quickCluster computeSumFactors 
 #' @importFrom scater calcAverage librarySizeFactors
 #'
 #' @examples
@@ -79,19 +78,16 @@ runAllMethods <- function(counts, threshold=0) {
 
     # Size factors with clustering prior to summation:
     if (ncol(counts) >= 200) {
-        emp.clusters <- quickCluster(counts, method="igraph")
+        emp.clusters <- quickCluster(counts)
         final2.sf <- computeSumFactors(counts, sizes=sizes, clusters=emp.clusters, min.mean=threshold)
     } else {
         final2.sf <- final.sf
     }
 
-    # Using a knn-based method for summation.
-    final3.sf <- simpleSumFactors(counts, min.mean=threshold, approximate=TRUE)
-
     # Reporting all methods.
     return(list(TMM=tmm.sf, TMM.ave=tmm2.sf,
                 DESeq.geo=size.sf, DESeq.ave=size2.sf, DESeq.pseudo=sizeP.sf, DESeq.pseudo.lib=sizeP2.sf,
                 Lib=lib.sf,
-                Deconv=final.sf, Deconv.clust=final2.sf, QuickSum=final3.sf))
+                Deconv=final.sf, Deconv.clust=final2.sf))
 }
 
