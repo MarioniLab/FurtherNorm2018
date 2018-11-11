@@ -29,7 +29,6 @@ We apply a variety of methods:
 \item Library size normalization with \code{\link{librarySizeFactors}}.
 \item Deconvolution with \code{\link{computeSumFactors}} and without any pre-clustering.
 \item Deconvolution with \code{\link{computeSumFactors}} and pre-clustering with \code{\link{quickCluster}}.
-\item The nearest-neighbor approach in \code{\link{simpleSumFactors}}.
 }
 For the TMM and DESeq approaches, filtering on \code{threshold} is performed based on the average abundances computed from \code{\link{calcAverage}}.
 For the \pkg{scran}-based methods, filtering is done by passing \code{threshold} to the \code{min.mean} arguments.

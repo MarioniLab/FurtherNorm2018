@@ -4,7 +4,7 @@
 \alias{clusterBias}
 \title{Cluster-specific composition bias}
 \usage{
-clusterBias(counts, sf, clust, groups = NULL, threshold = 0)
+clusterBias(counts, sf, clust, groups = NULL, threshold = 0, ref = 1)
 }
 \arguments{
 \item{counts}{Numeric matrix, count data for genes (in rows) and cells/samples (in columns).}
@@ -29,11 +29,11 @@ We apply \code{sf} to \code{counts} to obtain normalized counts for all cells,
 and then compute the average normalized count for each level of \code{clust}.
 If cell-specific composition biases were successfully removed by \code{sf}, there should not be any composition biases between clusters.
 
-We use \code{\link{calcNormFactors}} to estimate the remaining bias between clusters.
-This is possible as the cluster averages should have few zeroes \emph{and} be very precise (thus reducing the bias of the trimmed mean when DE is imbalanced).
-Ideally, the returned values should be equal to unity, indicating that there are no biases in the cluster-specific averages.
+We use a median-based approach to estimate the remaining bias between clusters relative to a single reference.
+This combines the pairwise approach of TMM normalization (with weaker assumptions) and the relative robustness of \pkg{DESeq} normalization.
+It is possible as the cluster averages should have few zeroes \emph{and} be very precise (thus reducing the bias of the trimmed mean when DE is imbalanced).
 
-Note that \code{lib.size} is set to a constant (of 1 million) to avoid re-introducing composition biases in \code{\link{calcNormFactors}}.
+Ideally, the returned values should be equal to unity, indicating that there are no biases in the cluster-specific averages.
 }
 \examples{
 counts <- matrix(rpois(100000, lambda=2), ncol=100)
