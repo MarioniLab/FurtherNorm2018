@@ -14,11 +14,11 @@
 #' and then compute the average normalized count for each level of \code{clust}.
 #' If cell-specific composition biases were successfully removed by \code{sf}, there should not be any composition biases between clusters.
 #'
-#' We use \code{\link{calcNormFactors}} to estimate the remaining bias between clusters.
-#' This is possible as the cluster averages should have few zeroes \emph{and} be very precise (thus reducing the bias of the trimmed mean when DE is imbalanced).
-#' Ideally, the returned values should be equal to unity, indicating that there are no biases in the cluster-specific averages.
+#' We use a median-based approach to estimate the remaining bias between clusters relative to a single reference.
+#' This combines the pairwise approach of TMM normalization (with weaker assumptions) and the relative robustness of \pkg{DESeq} normalization.
+#' It is possible as the cluster averages should have few zeroes \emph{and} be very precise (thus reducing the bias of the trimmed mean when DE is imbalanced).
 #' 
-#' Note that \code{lib.size} is set to a constant (of 1 million) to avoid re-introducing composition biases in \code{\link{calcNormFactors}}.
+#' Ideally, the returned values should be equal to unity, indicating that there are no biases in the cluster-specific averages.
 #'
 #' @return 
 #' Normalization factors representing the scaling bias between clusters.
@@ -29,14 +29,13 @@
 #' @export
 #' @importFrom scater normalizeCounts calcAverage
 #' @importFrom Matrix rowMeans
-#' @importFrom edgeR calcNormFactors
 #'
 #' @examples
 #' counts <- matrix(rpois(100000, lambda=2), ncol=100)
 #' sf <- scater::librarySizeFactors(counts)
 #' clust <- sample(3, ncol(counts), replace=TRUE)
 #' clusterBias(counts, sf, clust)
-clusterBias <- function(counts, sf, clust, groups=NULL, threshold=0) {
+clusterBias <- function(counts, sf, clust, groups=NULL, threshold=0, ref=1) {
     clust <- as.factor(clust)
     U <- levels(clust)
     if (!is.null(groups)) {
@@ -50,15 +49,21 @@ clusterBias <- function(counts, sf, clust, groups=NULL, threshold=0) {
     sf <- sf/mean(sf)
     out <- normalizeCounts(counts, size_factors=sf, return_log=FALSE)
 
-    collected <- vector("list", length(U))
-    names(collected) <- U
+    by.clust <- vector("list", length(U))
+    names(by.clust) <- U
     for (x in U) {
         chosen <- clust==x
-        collected[[x]] <- rowMeans(out[,chosen,drop=FALSE])
+        by.clust[[x]] <- rowMeans(out[,chosen,drop=FALSE])
     }
-    by.clust <- do.call(cbind, collected)
 
-    keep <- calcAverage(by.clust) > threshold
-    calcNormFactors(by.clust[keep,], lib.size=rep(mean(colSums(by.clust)), ncol(by.clust)))
+    sf <- numeric(length(by.clust))
+    names(sf) <- names(by.clust)
+    ref.clust <- by.clust[[ref]]
+    for (x in U) {
+        current <- by.clust[[x]]
+        keep <- calcAverage(cbind(current, ref.clust)) > threshold
+        sf[x] <- median(current[keep]/ref.clust[keep], na.rm=TRUE)
+    }
+    sf
 }
 
