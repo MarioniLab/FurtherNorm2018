@@ -78,7 +78,7 @@ runAllMethods <- function(counts, threshold=0) {
 
     # Size factors with clustering prior to summation:
     if (ncol(counts) >= 200) {
-        emp.clusters <- quickCluster(counts)
+        emp.clusters <- quickCluster(counts, pc.approx=TRUE)
         final2.sf <- computeSumFactors(counts, sizes=sizes, clusters=emp.clusters, min.mean=threshold)
     } else {
         final2.sf <- final.sf
