@@ -67,7 +67,7 @@ lapply(all.sf, FUN=clusterBias, counts=counts(sce),
     clust=cell.types, groups=to.use, threshold=0.1) 
 ```
 
-Indeed, we can see that library size normalization exhibits a ~30% bias for one of the clusters.
+Indeed, we can see that library size normalization exhibits a ~50% bias for one of the clusters.
 
 # Examining downstream effects
 
@@ -75,12 +75,12 @@ We will focus on clusters 1 and 6, which have the most obvious difference in ter
 
 ```{r}
 sf.l <- all.sf$Lib
-sf.q <- all.sf$QuickSum
-plot(sf.l, sf.q, xlab="Library size factors", ylab="Quicksum size factors", log="xy")
+sf.d <- all.sf$Deconv.clust
+plot(sf.l, sf.d, xlab="Library size factors", ylab="Quicksum size factors", log="xy")
 is.1 <- which(cell.types=="1")
-points(sf.l[is.1], sf.q[is.1], col="orange")
+points(sf.l[is.1], sf.d[is.1], col="orange")
 is.6 <- which(cell.types=="6")
-points(sf.l[is.6], sf.q[is.6], col="dodgerblue")
+points(sf.l[is.6], sf.d[is.6], col="dodgerblue")
 ```
 
 Testing for DE between clusters with `r Biocpkg("edgeR")`:
@@ -89,19 +89,11 @@ Clearly there is a difference when we account for composition biases:
 ```{r}
 keep <- scater::calcAverage(sce) > 0.1
 subcounts <- counts(sce)[keep,]
-res.q <- testDE(subcounts, sf.q, is.1, is.6)
+res.q <- testDE(subcounts, sf.d, is.1, is.6)
 res.l <- testDE(subcounts, sf.l, is.1, is.6)
 
 library(edgeR)
 table(decideTestsDGE(res.q), decideTestsDGE(res.l))
-```
-
-By comparison, `computeSumFactors()` and `quickSumFactors()` are in greater agreement:
-    
-```{r}
-sf.d <- all.sf$Deconv.clust
-res.d <- testDE(subcounts, sf.d, is.1, is.6)
-table(decideTestsDGE(res.d), decideTestsDGE(res.q))
 ```
 
 # Session information

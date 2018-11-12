@@ -67,12 +67,12 @@ We will focus on oligodendrocytes and pyramidal neurons, which have an obvious d
 
 ```{r}
 sf.l <- all.sf$Lib
-sf.q <- all.sf$QuickSum
-plot(sf.l, sf.q, xlab="Library size factors", ylab="Quicksum size factors", log="xy")
+sf.d <- all.sf$Deconv.clust
+plot(sf.l, sf.d, xlab="Library size factors", ylab="Quicksum size factors", log="xy")
 is.oligo <- which(cell.types=="oligodendrocytes")
-points(sf.l[is.oligo], sf.q[is.oligo], col="orange")
+points(sf.l[is.oligo], sf.d[is.oligo], col="orange")
 is.pyramidal <- which(cell.types=="pyramidal CA1")
-points(sf.l[is.pyramidal], sf.q[is.pyramidal], col="dodgerblue")
+points(sf.l[is.pyramidal], sf.d[is.pyramidal], col="dodgerblue")
 ```
 
 Testing for DE between oligodendrocytes and pyramidal neurons with `r Biocpkg("edgeR")`.
@@ -81,19 +81,11 @@ Clearly there is a difference when we account for composition biases:
 ```{r}
 keep <- scater::calcAverage(counts) > 0.1
 subcounts <- counts[keep,]
-res.q <- testDE(subcounts, sf.q, is.oligo, is.pyramidal)
+res.q <- testDE(subcounts, sf.d, is.oligo, is.pyramidal)
 res.l <- testDE(subcounts, sf.l, is.oligo, is.pyramidal)
 
 library(edgeR)
 table(decideTestsDGE(res.q), decideTestsDGE(res.l))
-```
-
-By comparison, `computeSumFactors()` and `quickSumFactors()` are in greater agreement:
-
-```{r}
-sf.d <- all.sf$Deconv.clust
-res.d <- testDE(subcounts, sf.d, is.oligo, is.pyramidal)
-table(decideTestsDGE(res.d), decideTestsDGE(res.q))
 ```
 
 # Session information
