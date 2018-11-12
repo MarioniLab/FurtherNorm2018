@@ -1,5 +1,5 @@
 ---
-title: Faster and more accurate scaling normalization
+title: "[Closed] Faster and more accurate scaling normalization"
 author: Aaron Lun
 date: "`r Sys.Date()`"
 output:
@@ -7,9 +7,13 @@ output:
     toc_float: yes
 ---
 
+```{r, echo=FALSE}
+knitr::opts_chunk$set(error=FALSE, warning=FALSE, message=FALSE)
+```
+
 # Overview
 
-The `quickSumFactors()` approach is much simpler than the original `computeSumFactors()` algorithm.
+The `simpleSumFactors()` approach is much simpler than the original `computeSumFactors()` algorithm.
 It proceeds in several steps:
 
 1. Identify nearest neighbors for each cell.
@@ -25,7 +29,7 @@ This exploits the reduced number of zeroes in the pool to avoid problems with ze
 
 ## Background
 
-`quickSumFactors()` relies heavily on correct identification of nearest neighbors.
+`simpleSumFactors()` relies heavily on correct identification of nearest neighbors.
 There should be no systematic differential expression between each cell and its neighbors.
 Otherwise, the central assumption will not hold and the per-cell size factors will not be accurate in the presence of composition biases.
 
@@ -125,21 +129,58 @@ However, this requires sufficient neighbors _and_ minimal variance in $P_r$ in t
 Thus, $k$ should be set to the highest value that a user is willing to accept in terms of minimum population size.
 The default is to set $k=20$ but this can be increased to 100 for larger data sets.
 
-# Advantages compared to `computeSumFactors()`
+# Comparison to `computeSumFactors()`
 
-- `quickSumFactors()` does not solve a linear system.
+## Advantages 
+
+- `simpleSumFactors()` does not solve a linear system.
 This avoids problems with "concentration" of the median bias in `computeSumFactors()`, which results in inaccurate size factors for cells from minority populations.
 It is also faster and more stable, avoiding a segmentation fault in `r CRANpkg("Matrix")` when the number of cells is too large.
 - `computeSumFactors()` relied on a pre-clustering step to break up heterogeneous populations prior to deconvolution.
-This is no longer necessary with `quickSumFactors()` due to the pairwise comparisons to the reference cell $r$.
+This is no longer necessary with `simpleSumFactors()` due to the pairwise comparisons to the reference cell $r$.
 We save some time by avoiding the need to compute ranks, perform a PCA on a dense matrix and realize the NN graph into explicit clusters.
 
 We tested the performance of each method across a number of simulation scenarios in the `simulations` directory.
-In most scenarios, `quickSumFactors()` is more accurate than `computeSumFactors()` without preclustering.
+In most scenarios, `simpleSumFactors()` is more accurate than `computeSumFactors()` without preclustering.
 It is also comparable to or better than `computeSumFactors()` with preclustering when dealing with data sets with multiple subpopulations.
-Indeed, most of the loss of performance from `quickSumFactors()` is due to a lower-than-strictly-necessary $k$.
+Indeed, most of the loss of performance from `simpleSumFactors()` is due to a lower-than-strictly-necessary $k$.
 
-The counter-argument is that `quickSumFactors()` is heavily dependent on correct nearest neighbor detection.
-By comparison, `computeSumFactors()` is robust to mis-clustering as each pool-based size factor is estimated using the median.
-While this is true, the bias concentration seems to offset a lot of the purported robustness benefits from `computeSumFactors()`.
-Even if `quickSumFactors()` does not dominate `computeSumFactors()` completely, it is more practical - and definitely preferable to library size normalization. 
+## Disadvantages 
+
+The counter-argument is that `simpleSumFactors()` is heavily dependent on correct nearest neighbor detection.
+This is problematic as the nearest neighbor sets are quite noisy when generated from high-dimensional expression data.
+As a result, it may not be accurate to perform library size normalization of each cell to its pooled neighbor profile.
+This is especially true in UMI count data where Poisson noise dominates at low means, regardless of the effect size:
+
+```{r}
+set.seed(1000)
+y1 <- matrix(rpois(100000, lambda=0.2), nrow=1000)
+y2 <- matrix(rpois(100000, lambda=rep(c(1, 0.2), c(100, 900))), nrow=1000)
+y <- cbind(y1, y2)
+
+library(FNN)
+Y <- log2(y+1)    
+rowSums(get.knn(t(Y), k=20)$nn.index <= ncol(y1))
+
+# Clusters are more stable.
+truth <- gl(2, 100)
+table(truth, kmeans(t(Y), 2)$cluster)
+table(truth, igraph::cluster_walktrap(scran::buildSNNGraph(Y))$membership)
+```
+
+By comparison, explicit clustering yields cleaner results, presumably as information is shared between cells to determine cluster identity.
+This means that `computeSumFactors()` is more likely to operate on homogeneous cell types, reducing the problems with bias during deconvolution.
+The deconvolution algorithm is also inherently more robust to mis-clustering as each pool-based size factor is estimated using the median.
+
+# Final comments
+
+One can think of `simpleSumFactors()` as the logical end-point of our pre-clustering approach.
+Namely, create small spherical clusters around each cell, normalize each cell to its pseudo-cell, and rescale based on normalization of the pseudo-cells.
+If we were to increase the size of the clusters and robustify the within-cluster normalization, we would effectively get `computeSumFactors()` with pre-clustering.
+
+The appeal of `simpleSumFactors()` was that, by using very small clusters, we could assume homogeneity and use a fast library size-based within-cluster normalization.
+However, this assumption fails in noisy high-dimensional data where a small amount of contamination will often be observed in each set.
+One could "clean" the neighbor sets by only keeping neighbors that belong to the same cluster; however, at this point, one might as well use `computeSumFactors()` with pre-clustering.
+
+My conclusion was that `simpleSumFactors()` does not perform better than `computeSumFactors()` with pre-clustering.
+If it were necessary to cluster anyway, it would be preferable to have a more robust within-cluster normalization strategy.
