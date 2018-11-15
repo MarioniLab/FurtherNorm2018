@@ -4,7 +4,8 @@
 \alias{clusterBias}
 \title{Cluster-specific composition bias}
 \usage{
-clusterBias(counts, sf, clust, groups = NULL, threshold = 0, ref = 1)
+clusterBias(counts, sf, clust, groups = NULL, threshold = 0,
+  ref = NULL)
 }
 \arguments{
 \item{counts}{Numeric matrix, count data for genes (in rows) and cells/samples (in columns).}
@@ -17,6 +18,8 @@ clusterBias(counts, sf, clust, groups = NULL, threshold = 0, ref = 1)
 Clusters with low numbers of cells should be ignored.}
 
 \item{threshold}{Numeric scalar, threshold on the average count for bias estimation.}
+
+\item{ref}{Reference cluster to use for normalization, defaults to the cluster with the most non-zero counts in the average profile.}
 }
 \value{
 Normalization factors representing the scaling bias between clusters.

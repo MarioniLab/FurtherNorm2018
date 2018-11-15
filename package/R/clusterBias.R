@@ -8,6 +8,7 @@
 #' @param groups Character vector of cluster identities for which to compute bias.
 #' Clusters with low numbers of cells should be ignored.
 #' @param threshold Numeric scalar, threshold on the average count for bias estimation.
+#' @param ref Reference cluster to use for normalization, defaults to the cluster with the most non-zero counts in the average profile.
 #'
 #' @details
 #' We apply \code{sf} to \code{counts} to obtain normalized counts for all cells,
@@ -35,7 +36,7 @@
 #' sf <- scater::librarySizeFactors(counts)
 #' clust <- sample(3, ncol(counts), replace=TRUE)
 #' clusterBias(counts, sf, clust)
-clusterBias <- function(counts, sf, clust, groups=NULL, threshold=0, ref=1) {
+clusterBias <- function(counts, sf, clust, groups=NULL, threshold=0, ref=NULL) {
     clust <- as.factor(clust)
     U <- levels(clust)
     if (!is.null(groups)) {
@@ -54,6 +55,10 @@ clusterBias <- function(counts, sf, clust, groups=NULL, threshold=0, ref=1) {
     for (x in U) {
         chosen <- clust==x
         by.clust[[x]] <- rowMeans(out[,chosen,drop=FALSE])
+    }
+
+    if (is.null(ref)) {
+        ref <- which.max(vapply(by.clust, FUN=function(x) { sum(x>0) }, FUN.VALUE=0L))
     }
 
     sf <- numeric(length(by.clust))
