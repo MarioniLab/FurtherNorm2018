@@ -1,0 +1,169 @@
+---
+title: Effect of normalization on the workflow-processed data 
+author: Aaron Lun
+date: "`r Sys.Date()`"
+output:
+  BiocStyle::html_document:
+    toc_float: true
+---    
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+```
+
+# Setup 
+
+This document assesses the performance of the different normalization methods on the processed `SingleCellExperiment` objects from the `r Biocpkg("simpleSingleCell")` workflow.
+Those workflows need to be compiled first, see this [repository](https://github.com/MarioniLab/simpleSingleCellResults) for details.
+
+```{r}
+library(FurtherNorm2018)
+library(scran)
+library(scater)
+
+# Change according to the workflow location on your machine:
+dir <- "~/AaronDocs/Research/simpleSingleCell/package/vignettes/"
+```
+
+# 416B
+
+Loading:
+
+```{r}
+sce <- readRDS(file.path(dir, "416B_data.rds"))
+table(sce$cluster)
+```
+
+Performing normalization without any clustering:
+
+```{r}
+sce <- computeSumFactors(sce)
+clusterBias(counts(sce), sizeFactors(sce), sce$cluster, threshold=1)
+```
+
+We can also re-run it with some clustering:
+
+```{r}
+clust <- quickCluster(sce)
+sce <- computeSumFactors(sce, cluster=clust)
+clusterBias(counts(sce), sizeFactors(sce), sce$cluster, threshold=1)
+```
+
+And for comparison, we use library sizes:
+
+```{r}
+clusterBias(counts(sce), librarySizeFactors(sce), sce$cluster, threshold=1)
+```
+
+```{r, echo=FALSE, results="hide"}
+gc()
+```
+
+# Brain 
+
+Loading:
+
+```{r}
+sce <- readRDS(file.path(dir, "brain_data.rds"))
+table(sce$cluster)
+```
+
+Performing normalization without any clustering:
+
+```{r}
+sce <- computeSumFactors(sce, min.mean=0.1)
+clusterBias(counts(sce), sizeFactors(sce), sce$cluster, threshold=0.1)
+```
+
+We can also re-run it with some clustering:
+
+```{r}
+clust <- quickCluster(sce, pc.approx=TRUE)
+sce <- computeSumFactors(sce, cluster=clust, min.mean=0.1)
+clusterBias(counts(sce), sizeFactors(sce), sce$cluster, threshold=0.1)
+```
+
+And for comparison, we use library sizes:
+
+```{r}
+clusterBias(counts(sce), librarySizeFactors(sce), sce$cluster, threshold=0.1)
+```
+
+```{r, echo=FALSE, results="hide"}
+gc()
+```
+
+# PBMC 
+
+Loading:
+
+```{r}
+sce <- readRDS(file.path(dir, "pbmc_data.rds"))
+table(sce$Cluster)
+```
+
+Performing normalization without any clustering:
+
+```{r}
+sce <- computeSumFactors(sce, min.mean=0.1)
+clusterBias(counts(sce), sizeFactors(sce), sce$Cluster, threshold=0.1)
+```
+
+We can also re-run it with some clustering:
+
+```{r}
+clust <- quickCluster(sce, pc.approx=TRUE)
+sce <- computeSumFactors(sce, cluster=clust, min.mean=0.1)
+clusterBias(counts(sce), sizeFactors(sce), sce$Cluster, threshold=0.1)
+```
+
+And for comparison, we use library sizes:
+
+```{r}
+clusterBias(counts(sce), librarySizeFactors(sce), sce$Cluster, threshold=0.1)
+```
+
+```{r, echo=FALSE, results="hide"}
+gc()
+```
+
+# Mammary gland 
+
+Loading:
+
+```{r}
+sce <- readRDS(file.path(dir, "mammary.rds"))
+table(sce$Cluster)
+```
+
+Performing normalization without any clustering:
+
+```{r}
+sce <- computeSumFactors(sce, min.mean=0.1)
+clusterBias(counts(sce), sizeFactors(sce), sce$Cluster, threshold=0.1)
+```
+
+We can also re-run it with some clustering:
+
+```{r}
+clust <- quickCluster(sce, pc.approx=TRUE)
+sce <- computeSumFactors(sce, cluster=clust, min.mean=0.1)
+clusterBias(counts(sce), sizeFactors(sce), sce$Cluster, threshold=0.1)
+```
+
+And for comparison, we use library sizes:
+
+```{r}
+clusterBias(counts(sce), librarySizeFactors(sce), sce$Cluster, threshold=0.1)
+```
+
+```{r, echo=FALSE, results="hide"}
+gc()
+```
+
+# Session info
+
+```{r}
+sessionInfo()
+```
+
