@@ -7,7 +7,7 @@ output:
     toc_float: true
 ---    
 
-```{r}
+```{r, echo=FALSE}
 knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
 set.seed(100000)
 ```
@@ -56,11 +56,11 @@ Otherwise, if any composition biases are still present, we should see that in th
 
 ```{r}
 cell.types <- cellular$metadata$level1class
-lapply(all.sf, FUN=clusterBias, counts=counts, clust=cell.types, 
-    threshold=0.1, ref="oligodendrocytes")
+table(cell.types)
+lapply(all.sf, FUN=clusterBias, counts=counts, clust=cell.types, threshold=0.1)
 ```
 
-Indeed, we can see that library size normalization exhibits 20-40% bias for every cluster compared to oligodendrocytes.
+Indeed, we can see that library size normalization exhibits ~30% bias for oligodendrocytes.
 
 # Examining downstream effects
 

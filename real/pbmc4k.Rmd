@@ -7,7 +7,7 @@ output:
     toc_float: true
 ---    
 
-```{r}
+```{r, echo=FALSE}
 knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
 set.seed(10000)    
 ```
@@ -56,12 +56,13 @@ clusters <- clusters[match(colnames(sce), clusters$Barcode),]
 head(clusters)
 ```
 
-We then assess the performance of each clustering method based on the presence of composition biases between clusters.
+We assess the performance of each clustering method based on the presence of composition biases between clusters.
 We remove very small clusters for which calculations are likely to be inaccurate:
 
 ```{r}
 cell.types <- clusters$Cluster
 freq <- table(cell.types)
+freq
 to.use <- names(freq)[freq > 20]
 lapply(all.sf, FUN=clusterBias, counts=counts(sce), 
     clust=cell.types, groups=to.use, threshold=0.1) 
