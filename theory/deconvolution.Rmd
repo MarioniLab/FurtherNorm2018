@@ -1,0 +1,151 @@
+---
+title: "Deconvolution for scaling normalization"
+author: Aaron Lun
+date: "`r Sys.Date()`"
+output:
+  BiocStyle::html_document:
+    toc_float: yes
+bibliography: ref.bib
+---
+
+# Overview
+
+This document aims to provide a summary of the theory described in @lun2016pooling, with some corrections to the reasoning and additional practical notes.
+
+# Normalizing the pools
+
+## Framework 
+
+Consider a non-DE gene $g$ with true abundance $\lambda_g$.
+This can be in terms of number of transcript molecules or number of reads, depending on the technology - the interpretation of the absolute value is irrelevant at this point.
+In cell $i$, we observe a count of $y_{ig}$ where
+\[
+    E(y_{ig}) =  \mu_{ig} = s_i\lambda_g
+\]
+in cell $i$ with scaling bias $s_i$.
+We will scale this count with a cell-specific term $t_i^{-1}$, the reasons for which are discussed later.
+
+For a pool $P$ of multiple cells, we obtain the pooled expression value $V_{gP}$ by summing $y_{ig}t_i^{-1}$ for all $i\in P$.
+This gives us
+\[
+    E(V_{gP}) = \lambda_g \sum_{i\in\mathcal{P}} s_it_i^{-1}
+\]
+
+Finally, the average pseudo-cell is obtained by averaging across all $N$ cells in the dataset (or in the current cluster of interest, see `preclustering.Rmd`).
+The averaged expression value is denoted as $U_g$ with $E(U_g) = \lambda_g C$ where $C$ is the mean of $s_it_i^{-1}$ across all cells.
+
+## Computing the pool-based size factor
+
+### Justifying the ratio
+
+For each pool, we compute $V_{gP}/U_g$ for each gene.
+We approximate the expectation of the ratio for gene $g$ with 
+
+\[
+    E\left(\frac{V_{gP}}{U_g}\right) \approx \frac{E(V_{gP})}{E(U_g)} = \frac{\sum_{i\in\mathcal{P}} s_it_i^{-1}}{ C } \;.
+\]
+
+In the manuscript, we justified this approximation using the law of large numbers.
+The reasoning was that $U_g$ computed from many cells would be close to its expectation, 
+such that its small variability could be ignored when considering the expectation of the ratio.
+However, a better approach would be to consider a second-order Taylor expansion for the ratio of two random variables (see [here](www.stat.cmu.edu/~hseltman/files/ratio.pdf)).
+
+\[
+E\left(\frac{V_{gP}}{U_g}\right) \approx \frac{E(V_{gP})}{E(U_g)} - \frac{cov(V_{gP}, U_g)}{E(U_g)^2} + \frac{var(U_g)E(V_{gP})}{E(U_g)^3}
+\]
+
+In our setting, $U_g=(V_{gP}+X_{gP})/N$ where $X_{gP}$ is independent of $V_{gP}$ and represents the sum of expression values from cells not in $P$.
+As a result,
+
+\[
+E\left(\frac{V_{gP}}{U_g}\right) \approx \frac{E(V_{gP})}{E(U_g)} - \frac{cov(V_{gP}, V_{gP}+X_{gP})}{E(U_g)^2N} + \frac{var(V_{gP}+X_{gP})E(V_{gP})}{E(U_g)^3N^2} \;.
+\]
+
+The error term then becomes 
+
+\[
+\begin{aligned}
+& \frac{-var(V_{gP})}{E(U_g)^2N} + \frac{var(V_{gP}+X_{gP})E(V_{gP})}{E(U_g)^3N^2} \\
+&= \frac{1}{E(U_g)^3N^2} [ var(V_{gP}+X_{gP})E(V_{gP}) - N var(V_{gP}) E(U_g) ] \\
+&= \frac{1}{E(U_g)^3N^2} [ var(V_{gP})E(V_{gP}) + var(X_{gP})E(V_{gP}) - var(V_{gP})E(V_{gP}) - var(V_{gP})E(X_{gP}) ] \\
+&= \frac{1}{E(U_g)^3N^2} [ var(X_{gP})E(V_{gP}) - var(V_{gP})E(X_{gP}) ]
+\end{aligned}
+\]
+
+There are several features of this error term that make it small.
+Firstly, it will tend to zero if $N$ is large, even after cancelling out the increase in $E(X_{gP})$ and $var(X_{gP})$ with an increased number of cells. 
+Keep in mind that the moments of $V_{gP}$ are determined by the pool size and do not increase with the total number of cells.
+(The size of $E(U_g)$ has less effect as any scaling cancels out between the denominator and numerator.)
+
+Under stronger conditions, it is possible for the error term to become zero.
+The error will be equal to zero if the expression values are Poisson-distibuted, as then $var(X_{gP})=E(X_{gP})$ and $var(V_{gP})=E(V_{gP})$.
+This sounds reasonable but only works for UMI data and only when using $t_i=1$.
+Alternatively, we could assume that all expression values are i.i.d. with mean $\mu$ and variance $\sigma^2$.
+Assume that $P$ contains $N_P$ cells such that $X$ contains $N-N_P$ cells.
+Thus,
+
+\[
+\begin{aligned}
+E(V_{gP}) &= N_P \mu \;, \\
+var(V_{gP}) &= N_P \sigma^2 \;, \\
+E(X_{gP}) &= (N-N_P) \mu \; \mbox{and} \\
+var(X_{gP}) &= (N-N_P) \sigma^2 \; \mbox{such that} \\
+& \frac{1}{E(U_g)^3N^2} [ (N-N_P)N_P \mu\sigma^2 - (N-N_P)N_P \mu\sigma^2 = 0
+\end{aligned}
+\]
+
+### Using the median
+
+As we only have one observation per gene (per pool), it is not possible to compute the expectation of the ratio directly.
+Rather, we exploit the fact that the expectation is the same across all non-DE genes.
+By averaging across genes, we can obtain an estimate of the expected ratio
+
+\[
+\frac{\sum_{i\in\mathcal{P}} s_it_i^{-1}}{ C } \;.
+\]
+
+In practice, not all genes are non-DE.
+This means that we need a robust average that protects us from genes upregulated or downregulated in $P$ compared to the average pseudo-cell (large and small ratios, respectively).
+
+The simplest approach is to take the median ratio across all genes.
+We justify this by noting that the ratios should approach a normal distribution, based on the central limit theorem for $V_{gP}$ as a sum of expression values.
+(This requires the additional assumption that $U_g$ is negligible in variance, which is probably reasonable for large pools.)
+For a normal distribution, the median and mean are the same, so the former can be used as a robust proxy for the latter.
+This seems to be the case even at low means with the smallest pool size:
+
+```{r}
+ngenes <- 10000
+true.means <- rgamma(ngenes, 2, 2)
+dispersions <- 0.1
+blah <- matrix(rnbinom(ngenes*20, mu=true.means, size=1/dispersions), nrow=ngenes)
+ratio <- rowSums(blah)/true.means
+hist(ratio[ratio < 50], breaks=50, col="grey80")
+```
+
+The downside with the median is that it becomes increasingly inaccurate as we introduce a greater imbalance in the proportion of up/down-regulated DE genes.
+This is because the median gets shifted away from the true non-DE mean in the presence of skews in the ratio distribution.
+The inaccuracy is further exacerbated by our pooling procedure:
+
+- Solution of the linear system "concentrates" the median bias into cells containing DE genes.
+The simplest demonstration is that of a data set containing a 50:50 mix of two different types, each occupying one half of the library size-sorted ring.
+When the sliding window hits the boundary of the two cell types, the median becomes inaccurate once the pool contains one cell of the other type.
+However, the inaccuracy of the median is the same at the next position with two cells of the same type (as the same genes are DE, so the skew is unchanged).
+This means that the bias is fully attributed to the first cell of the other type!
+- The bias itself is relative to the pooled size factor.
+Even if the relative error is small, the absolute error can become quite large for any given cell-specific size factor.
+This is especially pronounced when the library size is not a good initial proxy for the size factor, see the issues related to $t_j$ choice below.
+
+We have tried a number of alternatives to overcome the deficiencies of the median-based estimate, such as:
+
+- Detecting the mode, based on a sliding window kernel of some kind.
+- Fitting a truncated normal distribution to a trimmed distribution of the ratios, taking advantage of the CLT.
+This involved using a maximum likelihood estimator for the mean and standard deviation, given the boundaries.
+- Using the asymmetry in the distances between the first-second and second-third quartiles to perform correction,
+exploiting the fact that this discrepancy between distances is about half the shift of the median from the true mean.
+- Using the "shortest half" method (see [here](http://fmwww.bc.edu/RePEc/bocode/s/shorth.html)) to identify the location.
+
+These methods were indeed less biased, but a lot less precise, e.g., variances were larger by at least an order of magnitude.
+This resulted in unstable estimates of the pool-based size factors and greater errors in the final cell-based size factors.
+As such, the median seems like the best choice despite its known flaws.
+
+# References
