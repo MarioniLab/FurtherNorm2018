@@ -8,6 +8,10 @@ output:
 bibliography: ref.bib
 ---
 
+```{r, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+```
+
 # Motivation
 
 Common methods for scaling normalization assume that most genes are not differentially expressed (DE) between samples.

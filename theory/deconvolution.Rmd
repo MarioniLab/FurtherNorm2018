@@ -8,6 +8,10 @@ output:
 bibliography: ref.bib
 ---
 
+```{r, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+```
+
 # Overview
 
 This document aims to provide a summary of the theory described in @lun2016pooling, with some corrections to the reasoning and additional practical notes.
