@@ -45,6 +45,7 @@ We can also re-run it with some clustering:
 
 ```{r}
 clust <- quickCluster(sce)
+table(clust, sce$cluster)
 sce <- computeSumFactors(sce, cluster=clust)
 clusterBias(counts(sce), sizeFactors(sce), sce$cluster, threshold=1)
 ```
@@ -79,6 +80,7 @@ We can also re-run it with some clustering:
 
 ```{r}
 clust <- quickCluster(sce, pc.approx=TRUE)
+table(clust, sce$cluster)
 sce <- computeSumFactors(sce, cluster=clust, min.mean=0.1)
 clusterBias(counts(sce), sizeFactors(sce), sce$cluster, threshold=0.1)
 ```
@@ -113,6 +115,7 @@ We can also re-run it with some clustering:
 
 ```{r}
 clust <- quickCluster(sce, pc.approx=TRUE)
+table(clust, sce$Cluster)
 sce <- computeSumFactors(sce, cluster=clust, min.mean=0.1)
 clusterBias(counts(sce), sizeFactors(sce), sce$Cluster, threshold=0.1)
 ```
@@ -147,6 +150,7 @@ We can also re-run it with some clustering:
 
 ```{r}
 clust <- quickCluster(sce, pc.approx=TRUE)
+table(clust, sce$Cluster)
 sce <- computeSumFactors(sce, cluster=clust, min.mean=0.1)
 clusterBias(counts(sce), sizeFactors(sce), sce$Cluster, threshold=0.1)
 ```
@@ -160,6 +164,17 @@ clusterBias(counts(sce), librarySizeFactors(sce), sce$Cluster, threshold=0.1)
 ```{r, echo=FALSE, results="hide"}
 gc()
 ```
+
+# Concluding remarks
+
+Deconvolution with pre-clustering generally yields good results, with size factors close to unity for all final clusters.
+Error seems to be limited to below 10% in most cases, which is acceptable for log-fold change considerations.
+Without pre-clustering, maximum errors are around 20%, and can be even higher than 50% with library size normalization.
+
+The major exception occurs in the PBMC data set where several clusters are far from 1 with pre-clustering and deconvolution.
+This is probably caused by coercion of multiple small clusters into a single level in `clust` to satisfy the minimum size in `quickCluster()`.
+As a result, the non-DE majority is violated.
+I consider this a pathological case as it involves many small clusters that are very different, such that there is not much information to share.
 
 # Session info
 
