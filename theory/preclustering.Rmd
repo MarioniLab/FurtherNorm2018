@@ -88,21 +88,27 @@ More appropriate clustering weakens the non-DE assumption and improves the accur
 By comparison, clusters based on correlations or binarized data tend to be coarser as they discard much information.
 
 An interesting question is whether the library size factors are acceptable for this initial clustering step.
-One could imagine that composition biases would yield distorted estimates of the normalized expression values.
+One could imagine that composition biases would yield distorted estimates of the normalized expression values and thus "incorrect" clusters.
 However, this probably does not matter.
 Strong composition biases are only introduced in the presence of strong DE between cells, and clustering should be obvious in such cases.
 
 ## Enforcing a minimum cluster size
 
 We enforce a minimum cluster size to obtain stable pseudo-cells for accurate normalization within clusters and rescaling between clusters.
-Previous versions of `quickCluster()` used a minimum size of 200 cells, but we have now reduced this to 20 cells.
-In pratice, the inaccuracy from coercing multiple distinct clusters together (and violating the non-DE assumption) is worse than the imprecision from having insufficient cells.
-By reducing the minimum number of cells, we avoid the former scenario at the cost of dealing with the latter.
+(For `computeSumFactors()`, this also increases the size of the linear system and the precision of the per-cell estimates.)
+Previous versions of `quickCluster()` used a minimum size of 200 cells, but we have now reduced this to 100 cells.
+This avoids inaccuracy from coercing multiple distinct clusters together and violating the non-DE assumption, at the cost of lower precision from insufficient cells.
 
 For `method="hclust"`, the minimum cluster size is set using the arguments in `cutreeDynamic()`.
 For `method="igraph"`, a custom greedy algorithm is used to guarantee all clusters are of the sufficient size.
 If the smallest cluster contains fewer cells than `min.size`, it is merged with the cluster that maximizes modularity.
 This process is repeated until all (merged) clusters are larger than `min.size`.
+
+One could argue that even `min.size=100` is too high for applications with very heterogeneous populations.
+However, coercion of two distinct clusters into one should not be an issue provided that the within-cluster normalization is robust to DE.
+It is only a problem when there are multiple clusters that have many DE genes _and_ low numbers of cells.
+This represents the pathological case where there is little information that can be sensibly shared across similar cells.
+Hopefully, though, precise normalization would not be necessary in such cases where the DE is so strong.
 
 # Rescaling between clusters
 
