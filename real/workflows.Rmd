@@ -168,13 +168,14 @@ gc()
 # Concluding remarks
 
 Deconvolution with pre-clustering generally yields good results, with size factors close to unity for all final clusters.
-Error seems to be limited to below 10% in most cases, which is acceptable for log-fold change considerations.
-Without pre-clustering, maximum errors are around 20%, and can be even higher than 50% with library size normalization.
+Error seems to be limited to a maximum of 15% in most cases, which is acceptable for log-fold change considerations.
+Without pre-clustering, maximum errors are around 20%, and can be higher still with library size normalization, e.g., in the brian dataset.
 
 The major exception occurs in the PBMC data set where several clusters are far from 1 with pre-clustering and deconvolution.
-This is probably caused by coercion of multiple small clusters into a single level in `clust` to satisfy the minimum size in `quickCluster()`.
-As a result, the non-DE majority is violated.
-I consider this a pathological case as it involves many small clusters that are very different, such that there is not much information to share.
+The most extreme case is due to discreteness in `clusterBias()` itself and can be ignored.
+The others are milder and are probably caused by coercion of multiple small clusters into a single level in `clust` to satisfy the minimum size in `quickCluster()`.
+As a result, the non-DE majority is violated, which results in 20-30% errors (consistent with the simulations).
+I consider this a pathological case as it involves several small clusters that are very different.
 
 # Session info
 
