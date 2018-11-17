@@ -187,13 +187,16 @@ This motivates the use of the library size-sorted ring to group cells with simil
 
 There is no point adding $V_{gP}$ from large and small cells, as the discreteness from the latter will effectively manifest as DE and skew the pooled size factor estimate.
 Convergence to a normal distribution or low-dispersion NB distribution would be compromised.
-Indeed, randomly scattering these cells around the ring will reduce the accuracy of all cells, large and small (see [`poolsim.Rout.save`](https://github.com/MarioniLab/Deconvolution2016/blob/master/simulations/poolsim.Rout.save)).
+Indeed, randomly scattering these cells around the ring will reduce the accuracy of all cells, large and small (see `simulations/justification/poolsim.R`).
 It's not just a matter of the small cells having larger variance.
 If it were, one would expect that random placement would actually improve the accuracy of small cells (as they get pooled with the more precise large cells).
 
+The use of the library size-sorted ring also provides some measure of robustness to an arbitrary input order of cells.
+However, this fails as a standardization strategy in the presence of tied library sizes.
+
 ## Why use different pool sizes?
 
-The use of multiple different pool sizes in `computeSumFactors()` improves precision (see [`standerr.Rout.save`](https://github.com/MarioniLab/Deconvolution2016/blob/master/simulations/standerr.Rout.save)).
+The use of multiple different pool sizes in `computeSumFactors()` improves precision (see `simulations/justifications/standerr.R`).
 This occurs for several reasons:
 
 - The inefficiency of the median estimator means that even nested pools provide extra information.
@@ -265,6 +268,7 @@ For example, if the alternating sums are the same in $\mathbf{a}$, we obtain $\o
 It is reasonable to assume that alternating sums are the same for the true $s_it_i^{-1}$.
 This is based on the expectation that (i) there should be no systematic structure along _alternating_ positions of the ring, and (ii) $N/m$ is large enough for the sum of every $m$th value to be the same, if not very similar.
 This suggests that we will obtain least-squares estimates close to the true values, even when the linear system formed from the pools is not identifiable.
+See `simulations/justifications/extraeqn.R` for a demonstration.
 
 ## Dealing with negative size factors
 
