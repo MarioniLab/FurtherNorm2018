@@ -157,8 +157,9 @@ As such, the median seems like the best choice despite its known flaws.
 
 ## Overview
 
-Repeating the estimation of the pool-based size factor $\theta_P$ for different pools yields a linear system where the variables are the unknown $s_i$.
-Solving this system with standard least-squares methods (e.g., QR decomposition) will yield estimates for $s_i$, i.e., the cell-specific scaling factors.
+Repeating the estimation of the pool-based size factor $\theta_P$ for different pools yields a linear system where $s_it_i^{-1}$ are the coefficients.
+Solving this system with standard least-squares methods (e.g., QR decomposition) will yield estimates for $s_it^{-1}$.
+We scale by the known $t_i$ to obtain estimates for $s_i$, i.e., the cell-specific scaling factors.
 
 Note that using least-squares in this application does not require normality or independence in the estimates of $\theta_P$.
 Indeed, the QR approach simply involves multiplying the $\theta_P$ vector by Q and backsolving for the triangular matrix R.
@@ -209,6 +210,61 @@ Smaller cells will also have more stochastic zeros anyway.
 Nonetheless, the equivalent failure point for DESeq would be 50%, which is clearly worse.
 
 ## Ensuring identifiability
+
+The use of the library size-sorted ring means that the linear system is not directly solvable when $N$ is not a relative prime with any $s$.
+Let $m > 1$ be the greatest common denominator between $N$ and all $s$.
+Consider a solution vector for the linear system $\mathbf{a} = (a_1, \ldots, a_N)$ where cells are ordered according to the ring.
+We can obtain an equivalent least-squares solution at
+
+\[
+\mathbf{a}' = (a_1 + \omega_1, a_2 + \omega_2, \ldots, a_{m-1} + \omega_{m-1}, a_m - \omega_m, a_{m+1} + a_1, \ldots, a_{N-1} + \omega_{m-1}, a_N - \omega_m)
+\]
+
+for any values $\omega_1, \ldots, \omega_m$ where $\omega_m = \sum_{i=1}^{m-1} \omega_i$.
+Thus, there is no unique solution.
+
+To avoid this problem, we define the pool sizes to be $(21, 26, 31, \ldots, 101)$.
+This set of pool sizes includes a number of primes, which reduces the chance that $N$ is not a relative prime with any $s$.
+
+As a fail-safe, we also add a number of linear equations to guarantee solvability.
+For each $i$, we set $s_it_i^{-1} = 1/C$.
+This is equivalent to performing library size normalization of each cell to the reference pseudo-cell.
+These extra equations are set to extremely low weight to avoid having any effect when the system is otherwise fully identifiable.
+
+Note that the extra equations can still lead to the correct solution when the system is not identifiable.
+Assume that $m > 1$ such that the exact solution of the linear system is fully dependent on the added equations.
+The residual sum of squares for these equations is 
+
+\[
+(a_1 + \omega_1 - 1/C)^2 + \ldots + (a_N - \omega_m - 1/C)^2 \;,
+\]
+
+where $a_1, \ldots, a_N$ are effectively constant as they are determined by the high-weight equations from the pool.
+This is minimized with respect to, say, $\omega_1$ when
+
+\[
+\begin{aligned}
+&\frac{N}{m}(2\omega_1 + \omega_2 + \ldots + \omega_{m-1}) \\
+&+ (a_1 + a_{m+1} + \ldots a_{N - m + 1}) \\
+&- (a_m + \ldots + a_N) \\
+&=0 \;.
+\end{aligned}
+\]
+
+If we repeat this for each $\omega$ term, we obtain another linear system that we can solve for $\omega$ (and thus for the least-squares solution).
+For $\omega_k$, the right hand side is 
+
+\[
+(a_m + \ldots + a_N) - (a_k + a_{m+k} + \ldots a_{N - m + k}) \;,
+\]
+
+i.e., differences between the sums of the $a$ terms for every $m$th library on the ring.
+This implies that the solution of $\omega$ will aim to minimize any differences between the alternating sums of the final estimates (i.e., of $s_it_i^{-1}$) along the ring.
+For example, if the alternating sums are the same in $\mathbf{a}$, we obtain $\omega_1=\omega_2=\ldots=\omega_{m-1}=0$, i.e., the final solution is $\mathbf{a}' = \mathbf{a}$.
+
+It is reasonable to assume that alternating sums are the same for the true $s_it_i^{-1}$.
+This is based on the expectation that (i) there should be no systematic structure along _alternating_ positions of the ring, and (ii) $N/m$ is large enough for the sum of every $m$th value to be the same, if not very similar.
+This suggests that we will obtain least-squares estimates close to the true values, even when the linear system formed from the pools is not identifiable.
 
 ## Dealing with negative size factors
 
