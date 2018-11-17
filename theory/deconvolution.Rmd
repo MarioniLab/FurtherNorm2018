@@ -105,12 +105,13 @@ Rather, we exploit the fact that the expectation is the same across all non-DE g
 By averaging across genes, we can obtain an estimate of the expected ratio
 
 \[
-\frac{\sum_{i\in\mathcal{P}} s_it_i^{-1}}{ C } \;.
+\theta_P = \frac{\sum_{i\in\mathcal{P}} s_it_i^{-1}}{ C } \;.
 \]
 
-In practice, not all genes are non-DE.
-This means that we need a robust average that protects us from genes upregulated or downregulated in $P$ compared to the average pseudo-cell (large and small ratios, respectively).
+This represents a linear equation for each pool with the (estimated) pool-based size factor on the left and the linear combination of unknown $s_i$ on the right.
 
+In practice, not all genes are non-DE.
+Thus, we need a robust average that protects us from genes upregulated or downregulated in $P$ compared to the average pseudo-cell (large and small ratios, respectively).
 The simplest approach is to take the median ratio across all genes.
 We justify this by noting that the ratios should approach a normal distribution, based on the central limit theorem for $V_{gP}$ as a sum of expression values.
 (This requires the additional assumption that $U_g$ is negligible in variance, which is probably reasonable for large pools.)
@@ -151,5 +152,64 @@ exploiting the fact that this discrepancy between distances is about half the sh
 These methods were indeed less biased, but a lot less precise, e.g., variances were larger by at least an order of magnitude.
 This resulted in unstable estimates of the pool-based size factors and greater errors in the final cell-based size factors.
 As such, the median seems like the best choice despite its known flaws.
+
+# Solving the linear system
+
+## Overview
+
+Repeating the estimation of the pool-based size factor $\theta_P$ for different pools yields a linear system where the variables are the unknown $s_i$.
+Solving this system with standard least-squares methods (e.g., QR decomposition) will yield estimates for $s_i$, i.e., the cell-specific scaling factors.
+
+Note that using least-squares in this application does not require normality or independence in the estimates of $\theta_P$.
+Indeed, the QR approach simply involves multiplying the $\theta_P$ vector by Q and backsolving for the triangular matrix R.
+This is equivalent to just adding or subtracting linear combinations of $\theta_P$ values.
+Thus, the expected value of each estimate should not be affected by the distribution or correlations.
+
+However, the standard error will be affected by correlations.
+The residuals are correlated across equations due to the fact that the pooled size factors are computed from the same counts.
+Thus, we probably shouldn't be estimating the standard error from the fit, contrary to the claims in @lun2016pooling.
+
+## Defining the pools
+
+## Using a library size-sorted ring
+
+All libraries are arranged onto a ring in order of increasing library size as one goes clockwise from 6 to 12 o'clock and then decreasing library size from 12 to 6.
+We apply a sliding window of size $s$ onto this ring.
+Each location of the sliding window defines a pool from which a linear equation is obtained.
+This yields $N$ linear equations in total after sliding the window around the ring, where each library is involved in $s$ equations.
+
+The real benefit for sorting by library size is different to that described in @lun2016pooling.
+Specifically, cells with small library size will have more discrete counts and low $t_i$.
+This results in large, discrete $V_{gP}$ values after library size adjustment.
+To improve the precision of the median ratio estimate, we need to reduce discreteness, and this can only be done by adding together values of similar size.
+This motivates the use of the library size-sorted ring to group cells with similar "levels" of discreteness together.
+
+There is no point adding $V_{gP}$ from large and small cells, as the discreteness from the latter will effectively manifest as DE and skew the pooled size factor estimate.
+Convergence to a normal distribution or low-dispersion NB distribution would be compromised.
+Indeed, randomly scattering these cells around the ring will reduce the accuracy of all cells, large and small (see [`poolsim.Rout.save`](https://github.com/MarioniLab/Deconvolution2016/blob/master/simulations/poolsim.Rout.save)).
+It's not just a matter of the small cells having larger variance.
+If it were, one would expect that random placement would actually improve the accuracy of small cells (as they get pooled with the more precise large cells).
+
+## Why use different pool sizes?
+
+The use of multiple different pool sizes in `computeSumFactors()` improves precision (see [`standerr.Rout.save`](https://github.com/MarioniLab/Deconvolution2016/blob/master/simulations/standerr.Rout.save)).
+This occurs for several reasons:
+
+- The inefficiency of the median estimator means that even nested pools provide extra information.
+By comparison, had the mean been used, changing the number of pool sizes used would not make any difference.
+- Use of multiple pools increases column rank and reduces imprecision due to unestimable coefficients.
+It would be very unfortunate for any linear system to have common factors with all pool sizes (see identifiability concerns below).
+- The use of large pools provides robustness to low counts, which compromises the use of median in small pools.
+Conversely, the use of small pools ensures that libraries with similar count magnitudes are added together (see CLT concerns above).
+
+The minimum pool size is chosen to reduce the probability of zeros in $V_{gP}$.
+With just 20 cells, it's possible to have over 95% randomly distributed zeros and still get a non-zero pooled size factor ($0.95^{20} < 0.5$).
+In practice, the tolerable proportion of zeroes is probably lower because some zeros are semi-systematic and you need multiple non-zero counts for the median to work.
+Smaller cells will also have more stochastic zeros anyway.
+Nonetheless, the equivalent failure point for DESeq would be 50%, which is clearly worse.
+
+## Ensuring identifiability
+
+## Dealing with negative size factors
 
 # References
