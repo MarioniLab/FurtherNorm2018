@@ -14,7 +14,9 @@ knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
 
 # Overview
 
-This document aims to provide a summary of the theory described in @lun2016pooling, with some corrections to the reasoning and additional practical notes.
+This document provides a summary of the theory behind the deconvolution approach, as described in @lun2016pooling.
+It includes some corrections and clarifications to the reasoning as well as some additional practical notes.
+We will assume that the reader is already familiar with the concept of composition biases in scaling normalization of genomics data.
 
 # Normalizing the pools
 
@@ -310,5 +312,21 @@ At high coverage, further increases to the counts should not increase the number
 For any cell with a negative size factor from deconvolution, an alternative is computed from the fitted curve based on the number of expressed genes.
 This defines the alternative size factor based on other cells with similar number of expressed genes.
 It is more robust than a library size-derived factor to differential expression.
+
+# Further discussion
+
+## Is removal of composition biases really necessary?
+
+Normalizing on library size is usually sufficient for purposes of cell type identification.
+Separation of cell types is robust as the presence of differences in the expression profile is not affected by the scaling factor.
+Indeed, that a cell type exhibits strong composition biases indicates that it has plenty of DE genes to distinguish it from other cell types.
+
+The main benefit of removing composition biases is to facilitate the intepreration of per-gene results.
+Composition biases can shift the log-fold change estimates between clusters or along trajectories, or induce weak artificial correlations between gene pairs.
+We can mitigate these effects by normalizing out composition biases, though admittedly, they are usually minor (around 20-50% on top of any existing fold change).
+Moreover, DE analyses in practice mostly focus on the top ranking genes, due to issues with interpreting the $p$-values (see `r Biocpkg("simpleSingleCell", "xtra-3b-de.html", label="here")` for a discussion).
+
+In short, removal of composition biases will improve the accuracy of downstream analyses, but is unlikely to have a major effect on the qualitative biological conclusions.
+The much bigger effect seems to be whether one chooses to preserve differences due to total RNA content via spike-in normalization [@lun2017assessing].
 
 # References
