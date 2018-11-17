@@ -268,4 +268,43 @@ This suggests that we will obtain least-squares estimates close to the true valu
 
 ## Dealing with negative size factors
 
+A downside of using the linear system is that its solution can theoretically contain negative values.
+These do not make sense in the context of scaling normalization.
+We previously used `r CRANpkg("limSolve")` to guarantee that the solutions were always non-negative.
+However, this was not an ideal strategy as it would return size factor estimates of zero for the affected cells, which was just as useless.
+
+If there are a large number of negative size factors, these are probably due to failure to filter out low-abundance genes.
+This results in all pools obtaining $\theta_{P}$ of zero.
+The solution is simply to filter out low-abundance genes prior to the deconvolution itself.
+`computeSumFactors()` offers the `min.mean` argument to do this, though there are some subtleties with the choice of filtering strategy - see `filtering.Rmd` for details.
+Note that the low-abundance genes can still be retained for downstream analyses.
+For scaling normalization, it is possible to normalize based on informative high-abundance genes and apply the same size factors to all other genes.
+
+Sporadic negative size factors arise from low-quality cells many zero counts and true size factors near zero.
+Errors in the system (due to bias or imprecision) can push these estimates below zero.
+It is difficult to accurately normalize such libraries with so little available information.
+These are most obviously handled by just filtering those low-quality cells out, e.g., if they do not express many genes.
+
+That said, it may be desirable to keep the affected cells for further analysis, in which case a "reasonable" choice of size factor must be made.
+We achieve this in `cleanSizeFactors()` by fitting a curve to the size factors against the number of expressed genes, for all libraries with positive size factors.
+This curve has the form
+
+\[
+y = \frac{Ax}{Bx+1}
+\]
+
+where $y$ is the size factor, $x$ is the number of expressed genes and $A$ and $B$ are coefficients to be estimated.
+This is a purely empirical expression, chosen because:
+
+- It passes through the origin. 
+The size factor should be zero when there are no genes expressed.
+- It is linear near zero.
+For a homogeneous population, the scaling bias is usually proportional to the number of expressed genes at low counts.
+- It asymptotes at large $x$. 
+At high coverage, further increases to the counts should not increase the number of expressed genes.
+
+For any cell with a negative size factor from deconvolution, an alternative is computed from the fitted curve based on the number of expressed genes.
+This defines the alternative size factor based on other cells with similar number of expressed genes.
+It is more robust than a library size-derived factor to differential expression.
+
 # References
