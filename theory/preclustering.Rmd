@@ -61,6 +61,12 @@ table(bias, kmeans(t(sranks), 2)$cluster)
 It is also unnecessary as the rescaling will remove all systematic differences in size factors between clusters (see below).
 Thus, any effect of the scaling bias on clustering that manifests as a shift to the size factors will be removed anyway.
 
+**Comments:**
+
+- It is probably unwise to mean-center the genes before computing correlations (e.g., like PCA).
+Two cells that are similar to the mean expression profile will have uncorrelated residuals and would appear to be unrelated. 
+The correct correlation should be near unity as their expression values would match up perfectly. 
+
 ## Based on binarized data
 
 Similar arguments apply to binarized data.
@@ -189,7 +195,7 @@ Cells that are stochastically similar are more likely to be placed in the same c
 This weakens some properties of the pseudo-cell (stability from the law of large numbers, convergence to normality via the CLT; see `deconvolution.Rmd`). 
 However, it would require very strong correlations between the majority of non-DE genes to have any impact.
 
-- One might argue that we would not need deconvolution at all if we were able to cluster cells into their types.
+- One might argue that we would not need robust scaling normalization strateiges at all if we were able to accurately cluster cells into their types.
 Specifically, we could just normalize using the library size within each cluster, and then rescale robustly across clusters.
 This is true, **provided you can cluster accurately in the first place** such that there are negligible DE genes within clusters.
 The appeal of deconvolution is that it is robust to imprecisions in the clustering (especially in high dimensions) that retain some DE within each cluster.
