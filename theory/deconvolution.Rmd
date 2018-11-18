@@ -149,6 +149,24 @@ These methods were indeed less biased, but a lot less precise, e.g., variances w
 This resulted in unstable estimates of the pool-based size factors and greater errors in the final cell-based size factors.
 As such, the median seems like the best choice despite its known flaws.
 
+## Pre-scaling by the library size
+
+To be more precise, the problem with large libraries is that they have larger variance in their counts.
+This manifests as large errors in the pooled size factors that will propagate throughout the linear system.
+Subsequently, the size factor estimates for the smaller libraries will have very large relative errors, even though the absolute errors may be of the same size.
+
+Prescaling by $t_j$ aims to get all of the fitted values of the linear system as similar to each other as possible.
+This ensures that the absolute error is equivalent to the relative error (upon reversing the scaling by $t_j$).
+Our assumption is that the library size is close to the true size factor, so we set $t_j$ to the library size.
+This demonstrably improves the stability of the estimates for small cells and reduces the chance of obtaining negative size factor estimates.
+
+Of course, when this assumption is not true, we can get very large relative errors as the fitted values are very unequal. 
+This is most apparent in pathological situations where there are many DE genes and the library sizes are also very different.
+Any absolute errors (due to the bias of the median) are subsequently amplified into large relative errors.
+This can be mitigated by using the newly computed size factors (which are presumably more accurate than the library sizes) as $t_j$ in a second call to `computeSumFactors()`.
+
+See `simulations/justifications/prescaling.Rmd` for a demonstration of these effects.
+
 # Solving the linear system
 
 ## Overview
