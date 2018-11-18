@@ -18,96 +18,90 @@ This document provides a summary of the theory behind the deconvolution approach
 It includes some corrections and clarifications to the reasoning as well as some additional practical notes.
 We will assume that the reader is already familiar with the concept of composition biases in scaling normalization of genomics data.
 
-# Normalizing the pools
-
-## Framework 
-
-Consider a non-DE gene $g$ with true abundance $\lambda_g$.
+The mathematical framework from the original paper is summarized here.
+Consider a non-DE gene $i$ with true abundance $\lambda_{i0}$.
 This can be in terms of number of transcript molecules or number of reads, depending on the technology - the interpretation of the absolute value is irrelevant at this point.
-In cell $i$, we observe a count of $y_{ig}$ where
-\[
-    E(y_{ig}) =  \mu_{ig} = s_i\lambda_g
-\]
-in cell $i$ with scaling bias $s_i$.
-We will scale this count with a cell-specific term $t_i^{-1}$, the reasons for which are discussed later.
+In cell $j$ with a scaling bias $\theta_j$, we observe a count of $y_{ij}$ where $E(y_{ij}) =  \lambda_{i0}\theta_j$.
+We will scale this count with a cell-specific term $t_j^{-1}$, the reasons for which are discussed later.
 
-For a pool $P$ of multiple cells, we obtain the pooled expression value $V_{gP}$ by summing $y_{ig}t_i^{-1}$ for all $i\in P$.
+Consider a pool $k$ consisting of an arbitrary set of cells $\mathcal{S}_k$.
+We obtain the pooled expression value $V_{ik}$ by summing $y_{ij}t_j^{-1}$ for all $j\in \mathcal{S}_k$.
 This gives us
 \[
-    E(V_{gP}) = \lambda_g \sum_{i\in\mathcal{P}} s_it_i^{-1}
+    E(V_{ik}) = \lambda_{i0} \sum_{j\in\mathcal{S}_k} \theta_jt_j^{-1}
 \]
 
 Finally, the average pseudo-cell is obtained by averaging across all $N$ cells in the dataset (or in the current cluster of interest, see `preclustering.Rmd`).
-The averaged expression value is denoted as $U_g$ with $E(U_g) = \lambda_g C$ where $C$ is the mean of $s_it_i^{-1}$ across all cells.
+The averaged expression value is denoted as $U_i$ with $E(U_i) = \lambda_{i0} C$ where $C$ is the mean of $\theta_jt_j^{-1}$ across all cells.
 
-## Computing the pool-based size factor
+# Normalizing the pools
 
-### Justifying the ratio
+## Computing the ratio
 
-For each pool, we compute $V_{gP}/U_g$ for each gene.
-We approximate the expectation of the ratio for gene $g$ with 
+For each pool, we compute $V_{ik}/U_i$ for each gene.
+We approximate the expectation of the ratio for gene $i$ with 
 
 \[
-    E\left(\frac{V_{gP}}{U_g}\right) \approx \frac{E(V_{gP})}{E(U_g)} = \frac{\sum_{i\in\mathcal{P}} s_it_i^{-1}}{ C } \;.
+    E\left(\frac{V_{ik}}{U_i}\right) \approx \frac{E(V_{ik})}{E(U_i)} = \frac{\sum_{j\in\mathcal{S}_k} \theta_jt_j^{-1}}{ C } \;.
 \]
 
 In the manuscript, we justified this approximation using the law of large numbers.
-The reasoning was that $U_g$ computed from many cells would be close to its expectation, 
+The reasoning was that $U_i$ computed from many cells would be close to its expectation, 
 such that its small variability could be ignored when considering the expectation of the ratio.
 However, a better approach would be to consider a second-order Taylor expansion for the ratio of two random variables (see [here](www.stat.cmu.edu/~hseltman/files/ratio.pdf)).
 
 \[
-E\left(\frac{V_{gP}}{U_g}\right) \approx \frac{E(V_{gP})}{E(U_g)} - \frac{cov(V_{gP}, U_g)}{E(U_g)^2} + \frac{var(U_g)E(V_{gP})}{E(U_g)^3}
+E\left(\frac{V_{ik}}{U_i}\right) \approx \frac{E(V_{ik})}{E(U_i)} - \frac{cov(V_{ik}, U_i)}{E(U_i)^2} + \frac{var(U_i)E(V_{ik})}{E(U_i)^3}
 \]
 
-In our setting, $U_g=(V_{gP}+X_{gP})/N$ where $X_{gP}$ is independent of $V_{gP}$ and represents the sum of expression values from cells not in $P$.
+In our setting, $U_i=(V_{ik}+X_{ik})/N$ where $X_{ik}$ is independent of $V_{ik}$ and represents the sum of expression values from cells not in $P$.
 As a result,
 
 \[
-E\left(\frac{V_{gP}}{U_g}\right) \approx \frac{E(V_{gP})}{E(U_g)} - \frac{cov(V_{gP}, V_{gP}+X_{gP})}{E(U_g)^2N} + \frac{var(V_{gP}+X_{gP})E(V_{gP})}{E(U_g)^3N^2} \;.
+E\left(\frac{V_{ik}}{U_i}\right) \approx \frac{E(V_{ik})}{E(U_i)} - \frac{cov(V_{ik}, V_{ik}+X_{ik})}{E(U_i)^2N} + \frac{var(V_{ik}+X_{ik})E(V_{ik})}{E(U_i)^3N^2} \;.
 \]
 
 The error term then becomes 
 
 \[
 \begin{aligned}
-& \frac{-var(V_{gP})}{E(U_g)^2N} + \frac{var(V_{gP}+X_{gP})E(V_{gP})}{E(U_g)^3N^2} \\
-&= \frac{1}{E(U_g)^3N^2} [ var(V_{gP}+X_{gP})E(V_{gP}) - N var(V_{gP}) E(U_g) ] \\
-&= \frac{1}{E(U_g)^3N^2} [ var(V_{gP})E(V_{gP}) + var(X_{gP})E(V_{gP}) - var(V_{gP})E(V_{gP}) - var(V_{gP})E(X_{gP}) ] \\
-&= \frac{1}{E(U_g)^3N^2} [ var(X_{gP})E(V_{gP}) - var(V_{gP})E(X_{gP}) ]
+& \frac{-var(V_{ik})}{E(U_i)^2N} + \frac{var(V_{ik}+X_{ik})E(V_{ik})}{E(U_i)^3N^2} \\
+&= \frac{1}{E(U_i)^3N^2} [ var(V_{ik}+X_{ik})E(V_{ik}) - N var(V_{ik}) E(U_i) ] \\
+&= \frac{1}{E(U_i)^3N^2} [ var(V_{ik})E(V_{ik}) + var(X_{ik})E(V_{ik}) - var(V_{ik})E(V_{ik}) - var(V_{ik})E(X_{ik}) ] \\
+&= \frac{1}{E(U_i)^3N^2} [ var(X_{ik})E(V_{ik}) - var(V_{ik})E(X_{ik}) ]
 \end{aligned}
 \]
 
 There are several features of this error term that make it small.
-Firstly, it will tend to zero if $N$ is large, even after cancelling out the increase in $E(X_{gP})$ and $var(X_{gP})$ with an increased number of cells. 
-Keep in mind that the moments of $V_{gP}$ are determined by the pool size and do not increase with the total number of cells.
-(The size of $E(U_g)$ has less effect as any scaling cancels out between the denominator and numerator.)
+Firstly, it will tend to zero if $N$ is large, even after cancelling out the increase in $E(X_{ik})$ and $var(X_{ik})$ with an increased number of cells. 
+Keep in mind that the moments of $V_{ik}$ are determined by the pool size and do not increase with the total number of cells.
+(The size of $E(U_i)$ has less effect as any scaling cancels out between the denominator and numerator.)
 
 Under stronger conditions, it is possible for the error term to become zero.
-The error will be equal to zero if the expression values are Poisson-distibuted, as then $var(X_{gP})=E(X_{gP})$ and $var(V_{gP})=E(V_{gP})$.
+The error will be equal to zero if the expression values are Poisson-distibuted, as then $var(X_{ik})=E(X_{ik})$ and $var(V_{ik})=E(V_{ik})$.
 This sounds reasonable but only works for UMI data and only when using $t_i=1$.
 Alternatively, we could assume that all expression values are i.i.d. with mean $\mu$ and variance $\sigma^2$.
-Assume that $P$ contains $N_P$ cells such that $X$ contains $N-N_P$ cells.
+Assume that $\mathcal{S}_k$ contains $N_k$ cells such that $X$ contains $N-N_k$ cells.
 Thus,
 
 \[
 \begin{aligned}
-E(V_{gP}) &= N_P \mu \;, \\
-var(V_{gP}) &= N_P \sigma^2 \;, \\
-E(X_{gP}) &= (N-N_P) \mu \; \mbox{and} \\
-var(X_{gP}) &= (N-N_P) \sigma^2 \; \mbox{such that} \\
-& \frac{1}{E(U_g)^3N^2} [ (N-N_P)N_P \mu\sigma^2 - (N-N_P)N_P \mu\sigma^2 = 0
+E(V_{ik}) &= N_k \mu \;, \\
+var(V_{ik}) &= N_k \sigma^2 \;, \\
+E(X_{ik}) &= (N-N_k) \mu \; \mbox{and} \\
+var(X_{ik}) &= (N-N_k) \sigma^2 \; \mbox{such that} \\
+& \frac{1}{E(U_i)^3N^2} [ (N-N_k)N_k \mu\sigma^2 - (N-N_k)N_k \mu\sigma^2 = 0
 \end{aligned}
 \]
 
-### Using the median
+## Using the median
 
 As we only have one observation per gene (per pool), it is not possible to compute the expectation of the ratio directly.
 Rather, we exploit the fact that the expectation is the same across all non-DE genes.
 By averaging across genes, we can obtain an estimate of the expected ratio
 
 \[
-\theta_P = \frac{\sum_{i\in\mathcal{P}} s_it_i^{-1}}{ C } \;.
+\theta_k = \frac{\sum_{j\in\mathcal{S}_k} \theta_jt_j^{-1}}{ C } \;.
 \]
 
 This represents a linear equation for each pool with the (estimated) pool-based size factor on the left and the linear combination of unknown $s_i$ on the right.
@@ -115,8 +109,8 @@ This represents a linear equation for each pool with the (estimated) pool-based 
 In practice, not all genes are non-DE.
 Thus, we need a robust average that protects us from genes upregulated or downregulated in $P$ compared to the average pseudo-cell (large and small ratios, respectively).
 The simplest approach is to take the median ratio across all genes.
-We justify this by noting that the ratios should approach a normal distribution, based on the central limit theorem for $V_{gP}$ as a sum of expression values.
-(This requires the additional assumption that $U_g$ is negligible in variance, which is probably reasonable for large pools.)
+We justify this by noting that the ratios should approach a normal distribution, based on the central limit theorem for $V_{ik}$ as a sum of expression values.
+(This requires the additional assumption that $U_i$ is negligible in variance, which is probably reasonable for large pools.)
 For a normal distribution, the median and mean are the same, so the former can be used as a robust proxy for the latter.
 This seems to be the case even at low means with the smallest pool size:
 
@@ -159,13 +153,13 @@ As such, the median seems like the best choice despite its known flaws.
 
 ## Overview
 
-Repeating the estimation of the pool-based size factor $\theta_P$ for different pools yields a linear system where $s_it_i^{-1}$ are the coefficients.
-Solving this system with standard least-squares methods (e.g., QR decomposition) will yield estimates for $s_it^{-1}$.
-We scale by the known $t_i$ to obtain estimates for $s_i$, i.e., the cell-specific scaling factors.
+Repeating the estimation of the pool-based size factor $\theta_k$ for different pools yields a linear system where $\theta_jt_j^{-1}$ are the coefficients.
+Solving this system with standard least-squares methods (e.g., QR decomposition) will yield estimates for $\theta_jt_j^{-1}$.
+We scale by the known $t_j$ to obtain estimates for $\theta_j$, i.e., the cell-specific scaling factors.
 
-Note that using least-squares in this application does not require normality or independence in the estimates of $\theta_P$.
-Indeed, the QR approach simply involves multiplying the $\theta_P$ vector by Q and backsolving for the triangular matrix R.
-This is equivalent to just adding or subtracting linear combinations of $\theta_P$ values.
+Note that using least-squares in this application does not require normality or independence in the estimates of $\theta_k$.
+Indeed, the QR approach simply involves multiplying the $\theta_k$ vector by Q and backsolving for the triangular matrix R.
+This is equivalent to just adding or subtracting linear combinations of $\theta_k$ values.
 Thus, the expected value of each estimate should not be affected by the distribution or correlations.
 
 However, the standard error will be affected by correlations.
@@ -183,11 +177,11 @@ This yields $N$ linear equations in total after sliding the window around the ri
 
 The real benefit for sorting by library size is different to that described in @lun2016pooling.
 Specifically, cells with small library size will have more discrete counts and low $t_i$.
-This results in large, discrete $V_{gP}$ values after library size adjustment.
+This results in large, discrete $V_{ik}$ values after library size adjustment.
 To improve the precision of the median ratio estimate, we need to reduce discreteness, and this can only be done by adding together values of similar size.
 This motivates the use of the library size-sorted ring to group cells with similar "levels" of discreteness together.
 
-There is no point adding $V_{gP}$ from large and small cells, as the discreteness from the latter will effectively manifest as DE and skew the pooled size factor estimate.
+There is no point adding $V_{ik}$ from large and small cells, as the discreteness from the latter will effectively manifest as DE and skew the pooled size factor estimate.
 Convergence to a normal distribution or low-dispersion NB distribution would be compromised.
 Indeed, randomly scattering these cells around the ring will reduce the accuracy of all cells, large and small (see `simulations/justification/poolsim.R`).
 It's not just a matter of the small cells having larger variance.
@@ -208,7 +202,7 @@ It would be very unfortunate for any linear system to have common factors with a
 - The use of large pools provides robustness to low counts, which compromises the use of median in small pools.
 Conversely, the use of small pools ensures that libraries with similar count magnitudes are added together (see CLT concerns above).
 
-The minimum pool size is chosen to reduce the probability of zeros in $V_{gP}$.
+The minimum pool size is chosen to reduce the probability of zeros in $V_{ik}$.
 With just 20 cells, it's possible to have over 95% randomly distributed zeros and still get a non-zero pooled size factor ($0.95^{20} < 0.5$).
 In practice, the tolerable proportion of zeroes is probably lower because some zeros are semi-systematic and you need multiple non-zero counts for the median to work.
 Smaller cells will also have more stochastic zeros anyway.
@@ -267,7 +261,7 @@ i.e., differences between the sums of the $a$ terms for every $m$th library on t
 This implies that the solution of $\omega$ will aim to minimize any differences between the alternating sums of the final estimates (i.e., of $s_it_i^{-1}$) along the ring.
 For example, if the alternating sums are the same in $\mathbf{a}$, we obtain $\omega_1=\omega_2=\ldots=\omega_{m-1}=0$, i.e., the final solution is $\mathbf{a}' = \mathbf{a}$.
 
-It is reasonable to assume that alternating sums are the same for the true $s_it_i^{-1}$.
+It is reasonable to assume that alternating sums are the same for the true $\theta_jt_j^{-1}$.
 This is based on the expectation that (i) there should be no systematic structure along _alternating_ positions of the ring, and (ii) $N/m$ is large enough for the sum of every $m$th value to be the same, if not very similar.
 This suggests that we will obtain least-squares estimates close to the true values, even when the linear system formed from the pools is not identifiable.
 See `simulations/justifications/extraeqn.R` for a demonstration.
