@@ -44,7 +44,7 @@ This means that the few genes with distorted expected expressions are "diluted" 
 and may be ignored completely when a robust estimator is used for the size factor.
 Stochastic changes in expression are also less likely to be a problem with large numbers of cells that stabilize the average.
 
-Note that this logic fails with extremely aggressive filtering schemes, e.g., if we only retain genes that are non-zero in _all_cells.
+Note that this logic fails with extremely aggressive filtering schemes, e.g., if we only retain genes that are non-zero in _all_ cells.
 This favours genes that are stochastically non-zero (or indeed, are actually up-regulated) in cells with small size factors, in order to avoid zeroes.
 This results in overestimation of the size factors for such cells:
 
