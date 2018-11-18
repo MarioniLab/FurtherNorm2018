@@ -1,0 +1,51 @@
+---
+title: General comments on scaling normalization
+author: Aaron Lun
+date: "`r Sys.Date()`"
+output:
+  BiocStyle::html_document:
+    toc_float: yes
+bibliography: ref.bib
+---
+
+```{r, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+```
+
+# Overview
+
+This document provides some general thoughts on scaling normalization in the wider context of scRNA-seq data analysis.
+
+# Dealing with dropouts 
+
+Differences in dropout rates between cells should not, in and of themselves, affect scaling normalization.
+This is because scaling normalization concerns itself with systematic (technical) differences in the **expected** expression between cells.
+Whether such differences occur due to changes in the zero or non-zero components is irrelevant to the computed size factors. 
+The distribution of expression only matters insofar as the robust average estimators are accurate.
+
+# Is removal of composition biases really necessary?
+
+Normalizing on library size is usually sufficient for purposes of cell type identification.
+Separation of cell types is robust as the presence of differences in the expression profile is not affected by the scaling factor.
+Indeed, that a cell type exhibits strong composition biases indicates that it has plenty of DE genes to distinguish it from other cell types.
+
+The main benefit of removing composition biases is to facilitate the intepreration of per-gene results.
+Composition biases can shift the log-fold change estimates between clusters or along trajectories, or induce weak artificial correlations between gene pairs.
+We can mitigate these effects by normalizing out composition biases, though admittedly, they are usually minor (around 20-50% on top of any existing fold change).
+Moreover, single-cell DE analyses mostly focus on the top ranking genes due to difficulties with interpreting the $p$-values (see `r Biocpkg("simpleSingleCell", "xtra-3b-de.html", label="here")` for a discussion).
+
+In short, removal of composition biases will improve the accuracy of downstream analyses, but is unlikely to have a major effect on the qualitative biological conclusions.
+The much bigger effect seems to be whether one chooses to preserve differences due to total RNA content via spike-in normalization [@lun2017assessing].
+
+# Alternatives to removing composition biases
+
+If composition biases must be removed in the DE analysis, a simple solution is to wait until the analysis reaches that point.
+We apply library size normalization and perform clustering using the normalized expression profiles, under the assumption that composition biases do not compromise cluster detection.
+We normalize the cluster-specific average profiles against each other to remove any systematic non-zero log-fold change across the majority of genes.
+The use of an average avoids stochastic zeroes and improves accuracy of median-based estimators by reducing the variance of the non-DE genes 
+- see related comments about normalizing summed profiles in the supplementaries of @lun2017overcoming.
+Obviously, this does not give us single-cell size factors but these are, strictly speaking, unnecessary at this point in the analysis.
+Similar arguments can be made for trajectories where a local average can be computed for each cell, and these can be normalized to each other to remove systematic trends.
+
+# References
+
