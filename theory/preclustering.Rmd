@@ -29,6 +29,7 @@ We then rescale the size factors between clusters to ensure that they are compar
 This rescaling process only requires pairwise normalization between clusters, and thus only requires an assumption of a non-DE majority between pairs of clusters.
 For example, consider a situation where three clusters are present with a unique set of 20% DE genes each.
 The non-DE majority assumption is satisfied between all pairs (40%) even if the global non-DE assumption is not (60%).
+Even in relatively homogeneous populations, clustering will improve accuracy by avoiding skews in the distribution of the ratios, e.g., for median-based estimators.
 
 # Choice of clustering algorithm
 
@@ -185,8 +186,13 @@ As such, it is important to re-filter _within_ each cluster to ensure that only 
 
 - An even more subtle effect is that the cells are no longer strictly independent.
 Cells that are stochastically similar are more likely to be placed in the same cluster.
-This weakens some properties of the pseudo-cell (stability from the law of large numbers, convergence to normality via the CLT). 
+This weakens some properties of the pseudo-cell (stability from the law of large numbers, convergence to normality via the CLT; see `deconvolution.Rmd`). 
 However, it would require very strong correlations between the majority of non-DE genes to have any impact.
+
+- One might argue that we would not need deconvolution at all if we were able to cluster cells into their types.
+Specifically, we could just normalize using the library size within each cluster, and then rescale robustly across clusters.
+This is true, **provided you can cluster accurately in the first place** such that there are negligible DE genes within clusters.
+The appeal of deconvolution is that it is robust to imprecisions in the clustering (especially in high dimensions) that retain some DE within each cluster.
 
 # Session information
 
