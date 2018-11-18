@@ -101,7 +101,7 @@ Rather, we exploit the fact that the expectation is the same across all non-DE g
 By averaging across genes, we can obtain an estimate of the expected ratio
 
 \[
-\theta_k = \frac{\sum_{j\in\mathcal{S}_k} \theta_jt_j^{-1}}{ C } \;.
+\Theta_k = \frac{\sum_{j\in\mathcal{S}_k} \theta_jt_j^{-1}}{ C } \;.
 \]
 
 This represents a linear equation for each pool with the (estimated) pool-based size factor on the left and the linear combination of unknown $s_i$ on the right.
@@ -171,18 +171,26 @@ See `simulations/justifications/prescaling.Rmd` for a demonstration of these eff
 
 ## Overview
 
-Repeating the estimation of the pool-based size factor $\theta_k$ for different pools yields a linear system where $\theta_jt_j^{-1}$ are the coefficients.
+Repeating the estimation of the pool-based size factor $\Theta_k$ for different pools yields a linear system where $\theta_jt_j^{-1}$ are the coefficients.
 Solving this system with standard least-squares methods (e.g., QR decomposition) will yield estimates for $\theta_jt_j^{-1}$.
 We scale by the known $t_j$ to obtain estimates for $\theta_j$, i.e., the cell-specific scaling factors.
 
-Note that using least-squares in this application does not require normality or independence in the estimates of $\theta_k$.
-Indeed, the QR approach simply involves multiplying the $\theta_k$ vector by Q and backsolving for the triangular matrix R.
-This is equivalent to just adding or subtracting linear combinations of $\theta_k$ values.
+Note that using least-squares in this application does not require normality or independence in the estimates of $\Theta_k$.
+Indeed, the QR approach simply involves multiplying the $\Theta_k$ vector by Q and backsolving for the triangular matrix R.
+This is equivalent to just adding or subtracting linear combinations of $\Theta_k$ values.
 Thus, the expected value of each estimate should not be affected by the distribution or correlations.
 
 However, the standard error will be affected by correlations.
 The residuals are correlated across equations due to the fact that the pooled size factors are computed from the same counts.
 Thus, we probably shouldn't be estimating the standard error from the fit, contrary to the claims in @lun2016pooling.
+
+**Comments:**
+
+- One could imagine weighting the equations based on the number of cells in each pool.
+Size factors for larger pools are more variable with larger counts and should be downweighted.
+However, this seems to have little effect as the residuals are correlated across equations, due to the fact that the pooled size factors are computed from the same counts.
+For example, if the residuals were perfectly correlated, the relative weighting of the equations wouldn't matter as the system is overdetermined and consistent.
+Precision weights would also favour pools with few cells that are less likely to give accurate pool-based size factors due to zeroes and discreteness.
 
 ## Defining the pools
 
@@ -285,6 +293,9 @@ This is based on the expectation that (i) there should be no systematic structur
 The second assumption is made more likely by the use of multiple pool sizes that should further reduce the greatest common denominator.
 This suggests that we will obtain least-squares estimates close to the true values, even when the linear system formed from the pools is not identifiable.
 See `simulations/justifications/extraeqn.R` for a demonstration.
+
+An additional benefit is that, when $N$ is below the smallest pool size, the algorithm degrades naturally to library size normalization.
+This is probably the best that can be done in the presence of limited information.
 
 ## Dealing with negative size factors
 
