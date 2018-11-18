@@ -1,0 +1,151 @@
+---
+title: "Abundance filtering prior to scaling normalization"
+author: Aaron Lun
+date: "`r Sys.Date()`"
+output:
+  BiocStyle::html_document:
+    toc_float: yes
+bibliography: ref.bib
+---
+
+```{r, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+```
+
+# Overview
+
+This document describes some of the subtleties related to filtering on gene abundance prior to application of scaling normalization methods.
+We did not discuss this much in @lun2016pooling, except to use all genes with an average count above 1 for our normalization in real data.
+
+# Choosing an independent filter statistic
+
+## What does this mean?
+
+With an independent filter, the expected expression for a non-DE gene (conditional on its retention) is proportional to the size factor for each cell.
+This ensures that the size factor estimates are not biased by the gene selection.
+Indeed, it is simple to determine that the expected sum of counts for the retained non-DE genes would be directly proportional to the true size factor.
+
+The library size-adjusted average count is a logical choice for filtering, given that the same adjustment (by $t_j$) is performed to obtain internal values for pooling.
+However, as a filter statistic, this is not quite independent as it puts too much weight on counts from cells with small library sizes.
+Non-DE genes that are stochastically higher in such cells would be given more weight and would be more likely to survive the filter.
+This would potentially inflate the size factors for the smaller cells.
+
+Nonetheless, the library size-adjusted average is probably better than the direct average, which puts too much weight on counts from cells with large library sizes.
+(We used the raw average in the manuscript because we didn't know any better at this point.)
+Very small cells cause problems anyway and should have already been removed, which mitigates the problems with having too much weight on small cells.
+In contrast, we can't really remove the large cells, so excess weight on them would be an issue.
+
+The only way to ensure independence would be to use a count-based model, but this is unappealing given the need to estimate the dispersion.
+
+## Practical consequences
+
+The choice of filtering strategy usually doesn't have a large impact, probably because the density of genes at the filter boundary is relatively low in RNA-seq data.
+This means that the few genes with distorted expected expressions are "diluted" by the bulk of retained genes that are far from the filter boundary, 
+and may be ignored completely when a robust estimator is used for the size factor.
+Stochastic changes in expression are also less likely to be a problem with large numbers of cells that stabilize the average.
+
+Note that this logic fails with extremely aggressive filtering schemes, e.g., if we only retain genes that are non-zero in _all_cells.
+This favours genes that are stochastically non-zero (or indeed, are actually up-regulated) in cells with small size factors, in order to avoid zeroes.
+This results in overestimation of the size factors for such cells:
+
+```{r}
+set.seed(10000)
+means <- cbind(matrix(1, nrow=1000, ncol=20), matrix(2, nrow=1000, ncol=20))
+means[1:50, 1:20] <- 10 # Upregulated gene
+counts <- matrix(rnbinom(length(means), mu=means, size=20), nrow=nrow(means), ncol=ncol(means))
+nonzero <- rowSums(counts==0)==0
+sf <- DESeq2::estimateSizeFactorsForMatrix(counts[nonzero,])
+plot(means[51,], sf)
+```
+
+## Comments on the library size
+
+The fact that the library size may not be equal to the size factor is not a major issue.
+For non-DE genes, the library-size adjusted expected count should be $\theta_j\lambda_{i0}/t_j$, which allows us to factorize out $\lambda_{i0}$ for each gene $i$.
+This means that the ordering of non-DE genes should be preserved in the library size-adjusted average.
+The only issue is whether the library size adjustment gives too much or too little weight to some cells, which we have already discussed above.
+
+# Filtering to protect the median
+
+The use of the median assumes that the ratios are normally distributed.
+Filtering aims to get rid of genes with small means for which this approximation is unlikely to hold
+(this would result in a biased estimate of the ratio, which is likely to propagate to the size factors, as it won't cancel out exactly between equations).
+A related concern is that low count, high dispersion genes will have highly variable ratios.
+This would decrease the precision _and_ accuracy of a median-based estimator.
+
+Consider the following simulation, where we compute the median for 10000 low-abundance genes, and calculate its expectation and variance.
+You can see that at counts below 2, the estimation error from using the median is pretty bad (exceeding 20% from the expected value of unity).
+It's at a similar point that the variance of the estimator also increases, though the bias is the major contributor here,
+Obviously you can expect that this will get even worse for overdispersed data where both the variance and bias are likely to increase.
+
+```{r, fig.width=10, fig.height=6}
+set.seed(100)
+ngenes <- 10000
+niter <- 100
+vals <- list()
+for (it in seq_len(20)) {
+    lambda <- it/4
+    y <- matrix(rpois(ngenes*niter, lambda=lambda), ncol=ngenes)
+    rat <- y/rowMeans(y)
+    meds <- apply(rat, 1, median)
+    vals[[it]] <- c(lambda, mean(meds), sd(meds))
+}
+vals <- do.call(rbind, vals)
+
+par(mfrow=c(1,2))
+plot(vals[,1], vals[,2], xlab="Lambda", ylab="Expected median ratio")
+plot(vals[,1], vals[,3], xlab="Lambda", ylab="Standard deviation")
+```
+
+In the deconvolution method, you can consider the threshold multiplied by the minimum pool size (20 cells by default) as the minimum pooled count.
+This gives us pooled counts of around `20*1` for read data, which should be large enough to avoid the above problems for NB dispersions below 0.5.
+For UMI data, we get pooled counts of `20*0.1` -- however, the variability is near-Poisson anyway, so variability and bias in the ratio should be okay.
+Any biases are probably tolerable if the data set is dominated by genes in the the high-abundance peak.
+(They may also cancel out to some extent, given that the bias fluctuates in the plot above).
+
+# Filtering within and between clusters
+
+It makes sense to perform filtering within each cluster rather than doing it globally.
+The former ensures that deconvolution is operating on appropriately high-abundance genes within each cluster.
+Otherwise, the choice of genes would be skewed by larger clusters, and such genes may not be expressed to an appropriate level in other clusters.
+Thus, `computeSumFactors` will filter by the chosen minimum mean within each specified cluster.
+
+When normalizing between clusters, we only use the genes where the _grand mean of the means_ across the two clusters is greater than the specified threshold.
+This is a better choice than the mean across all cells, or the mean across all cells of the two clusters, as the grand mean is insensitive to the cluster sizes.
+Thus, we are less likely to enrich for DE genes that are upregulated in the larger cluster.
+(In contrast, we're more likely to select balanced DE.)
+
+To further improve selection of balanced DE, the grand mean is also computed in a manner that is agnostic to the mean total counts of each cluster.
+Specifically, we compute the average proportion for each gene and then multiply this by the average total count across the two clusters.
+This avoids favouring DE genes that are only upregulated in the cluster that has larger total counts.
+
+```{r}
+mu1 <- rep(c(10, 50, 100), each=1000)
+mu2 <- rep(c(10, 5, 1), each=1000) # 10x lower counts, due to fewer/smaller cells.
+mode <- rep(c("Down", "Same", "Up"), each=1000)
+a1 <- rnbinom(10000, mu=mu1, size=10)
+a2 <- rnbinom(10000, mu=mu2, size=10)
+
+# Raw count filtering (keeping the top 10%)
+nkeep <- length(mu1)/10
+keep <- rank(-(a1 + a2)) <= nkeep
+table(mode[keep])
+
+# Filtering after adjusting for library size - more balanced.
+keep <- rank(-scater::calcAverage(cbind(a1, a2))) <= nkeep
+table(mode[keep])
+```
+
+We also filter before we pre-cluster (see below) to ensure that we have the same set of genes being used in `quickCluster` and `computeSumFactors`.
+This ensures that we focus on separating cells by the DE genes (or lack thereof) in the set of genes to be used for normalization.
+There's no need to worry about DE genes in the low-abundance genes, because we've filtered them out already.
+Obviously, filtering out low-abundance genes will discard some reoslution of biological structure.
+This is tolerable as the point of pre-clustering is to avoid DE genes within each cluster, not to identify genuine subpopulations.
+
+# Session information
+
+```{r}
+sessionInfo()
+```
+
+# References
