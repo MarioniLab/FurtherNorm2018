@@ -242,6 +242,7 @@ Thus, there is no unique solution.
 
 To avoid this problem, we define the pool sizes to be $(21, 26, 31, \ldots, 101)$.
 This set of pool sizes includes a number of primes, which reduces the chance that $N$ is not a relative prime with any $s$.
+Admittedly, it is rather odd that a system with three cells and a pool size of 2 is solvable, while a system with four cells is not.
 
 As a fail-safe, we also add a number of linear equations to guarantee solvability.
 For each $i$, we set $s_it_i^{-1} = 1/C$.
@@ -272,15 +273,16 @@ If we repeat this for each $\omega$ term, we obtain another linear system that w
 For $\omega_k$, the right hand side is 
 
 \[
-(a_m + \ldots + a_N) - (a_k + a_{m+k} + \ldots a_{N - m + k}) \;,
+\frac{m}{N}[ (a_m + \ldots + a_N) - (a_k + a_{m+k} + \ldots a_{N - m + k}) ]\;,
 \]
 
-i.e., differences between the sums of the $a$ terms for every $m$th library on the ring.
-This implies that the solution of $\omega$ will aim to minimize any differences between the alternating sums of the final estimates (i.e., of $s_it_i^{-1}$) along the ring.
-For example, if the alternating sums are the same in $\mathbf{a}$, we obtain $\omega_1=\omega_2=\ldots=\omega_{m-1}=0$, i.e., the final solution is $\mathbf{a}' = \mathbf{a}$.
+i.e., differences between the averages of the $a$ terms for every $m$th library on the ring.
+This implies that the solution of $\omega$ will aim to minimize any differences between the alternating averages of the final estimates (i.e., of $s_it_i^{-1}$) along the ring.
+For example, if the alternating averages are the same in $\mathbf{a}$, we obtain $\omega_1=\omega_2=\ldots=\omega_{m-1}=0$, i.e., the final solution is $\mathbf{a}' = \mathbf{a}$.
 
-It is reasonable to assume that alternating sums are the same for the true $\theta_jt_j^{-1}$.
+It is reasonable to assume that alternating averages are the same for the true $\theta_jt_j^{-1}$.
 This is based on the expectation that (i) there should be no systematic structure along _alternating_ positions of the ring, and (ii) $N/m$ is large enough for the sum of every $m$th value to be the same, if not very similar.
+The second assumption is made more likely by the use of multiple pool sizes that should further reduce the greatest common denominator.
 This suggests that we will obtain least-squares estimates close to the true values, even when the linear system formed from the pools is not identifiable.
 See `simulations/justifications/extraeqn.R` for a demonstration.
 
